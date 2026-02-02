@@ -1,0 +1,39 @@
+/* app/globals.css */
+@import "tailwindcss";
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-rgb: 243, 244, 246;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial;
+}
+
+/* Estilos personalizados para a nota */
+.bg-yellow-100 {
+  background-color: #fef3c7;
+}
+
+/* Para impressão */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #note-preview,
+  #note-preview * {
+    visibility: visible;
+  }
+
+  #note-preview {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
