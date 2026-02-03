@@ -12,6 +12,7 @@ interface ExportControlsProps {
   generatedNotes: PromissoryNote[];
   printMultiple: boolean;
   notesPerPage: number;
+  savePaper: boolean;
 }
 
 export default function ExportControls({
@@ -19,6 +20,7 @@ export default function ExportControls({
   generatedNotes,
   printMultiple,
   notesPerPage,
+  savePaper,
 }: ExportControlsProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -179,219 +181,254 @@ export default function ExportControls({
     }
   };
 
-  // Função para criar HTML de uma única nota (versão reduzida para múltiplas)
+  // Função para criar HTML de uma única nota (com dimensões fixas)
   const createNoteHTML = (
     note: PromissoryNote,
     smallSize = false,
     isPageContent = false,
   ) => {
-    // Ajustes para tamanho reduzido
-    const scaleFactor = smallSize ? 0.85 : 1;
+    // DIMENSÕES AJUSTÁVEIS: padrão 150x100mm, reduzido 140x93mm para economizar papel
+    let noteWidth = 150; // mm
+    let noteHeight = 100; // mm
 
-    // Se for smallSize, mantemos a mesma estrutura mas com fontes menores
-    const fontSizeTitle = smallSize ? "6mm" : "7mm";
-    const fontSizeValue = smallSize ? "3.8mm" : "4.5mm";
-    const fontSizeBody = smallSize ? "3.2mm" : "3.8mm";
-    const fontSizeEmitente = smallSize ? "3.4mm" : "4mm";
-    const paddingTop = smallSize ? "3mm" : "5mm";
-    const paddingBottom = smallSize ? "12mm" : "25mm";
-    const paddingSide = smallSize ? "10mm" : "25mm";
-    const marginBottomEmitente = smallSize ? "6mm" : "10mm";
-    const marginBottomLocal = smallSize ? "8mm" : "15mm";
-    const lineHeight = smallSize ? "1.4" : "1.6";
+    // Se estamos em modo de economizar papel E é para múltiplas notas
+    if (savePaper && printMultiple && notesPerPage > 1) {
+      // Reduzir para encaixar 3 na horizontal e 2 na vertical
+      noteWidth = 140; // mm (reduzido de 150)
+      noteHeight = 93; // mm (reduzido de 100)
+    }
+
+    // Fontes ajustadas para o tamanho
+    const fontSizeTitle = smallSize ? "5mm" : "6mm";
+    const fontSizeValue = smallSize ? "3.5mm" : "4mm";
+    const fontSizeBody = smallSize ? "2.8mm" : "3.2mm";
+
+    // Ajustar ainda mais as fontes se estiver em modo economizar papel
+    const adjustedFontSizeBody =
+      savePaper && printMultiple && notesPerPage > 1 ? "2.6mm" : fontSizeBody;
+    const adjustedFontSizeTitle =
+      savePaper && printMultiple && notesPerPage > 1 ? "4.5mm" : fontSizeTitle;
 
     return `
-  <div class="note-container ${isPageContent ? "page-note" : ""}" style="
-    ${smallSize ? "width: 200mm; min-height: 85mm;" : "width: 210mm; min-height: 280mm;"}
-    background-color: white;
-    box-sizing: border-box;
-    font-family: Arial, Helvetica, sans-serif;
-    border: ${isPageContent ? "none" : "1px solid #eee"};
-    page-break-inside: avoid;
-    ${smallSize && !isPageContent ? "margin-bottom: 3mm;" : ""}
-  ">
-    <div style="
-      width: 100%;
-      padding: ${paddingTop} ${paddingSide} ${paddingBottom};
+    <div class="note-container ${isPageContent ? "page-note" : ""}" style="
+      width: ${noteWidth}mm;
+      height: ${noteHeight}mm;
+      background-color: white;
+      padding: 0 3mm 0 3mm;
       box-sizing: border-box;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
+      font-family: Arial, Helvetica, sans-serif;
+      border: 1px solid #eee;
+      page-break-inside: avoid;
+      position: relative;
     ">
-      <!-- 1. Título Principal -->
-      <div style="
-        text-align: center; 
-        margin-bottom: 0mm;
-        flex-shrink: 0;
-      ">
-        <h1 style="
-          font-size: ${fontSizeTitle}; 
-          font-weight: bold; 
-          margin: 0;
-          text-transform: uppercase;
-          letter-spacing: 0.3px;
-          line-height: 1.2;
-          text-decoration: underline black;
-        ">
-          NOTA PROMISSÓRIA
-        </h1>
-      </div>
-      
-      <!-- 2. Numero da Nota -->
-      <div style="margin-top: 2mm; margin-bottom: 1mm;">
-        <span style="font-weight: bold; font-size: ${fontSizeBody};">Nº:</span>
-        <span style="margin-left: 2mm; font-size: ${fontSizeBody};">${note.number}</span>
-      </div>
-      
-      <!-- 3. Vencimento e Valor -->
-      <div style="
-        text-align: right;
-        margin-bottom: 0;
-        flex-shrink: 0;
-      ">
-        <div style="margin-bottom: 1mm;">
-          <span style="font-weight: bold; font-size: ${fontSizeBody};">Vencimento:</span>
-          <span style="margin-left: 2mm; font-size: ${fontSizeBody};">${formatDateDDMMYYYY(note.dueDate)}</span>
-        </div>
-        <div>
-          <span style="
-            font-weight: bold; 
-            font-size: ${fontSizeValue};
-            padding: 1mm 2mm;
-            display: inline-block;
-          ">
-            Valor: ${formatCurrency(note.amount)}
-          </span>
-        </div>
-      </div>
-      
-      <!-- 4. Corpo do Texto -->
-      <div style="
-        flex-grow: 1;
-        margin-bottom: 0;
-        margin-top: ${smallSize ? "4mm" : "15mm"};
-      ">
-        <p style="
-          text-align: justify;
-          line-height: ${lineHeight};
-          margin: 0;
-          font-size: ${fontSizeBody};
-        ">
-          ${formatFullDate(note.dueDate)}, pagarei por esta nota promissória à ${note.beneficiaryName}, CNPJ n° ${note.beneficiaryCNPJ}, ou à sua ordem, a quantia de <strong>${note.formattedAmount}</strong>, em moeda corrente nacional.
-        </p>
-        
-        <!-- 6. Local de Pagamento -->
-        <p style="
-          text-align: left;
-          line-height: ${lineHeight};
-          font-size: ${fontSizeBody};
-          margin-top: ${smallSize ? "2mm" : "5mm"};
-          margin-bottom: ${smallSize ? "4mm" : "10mm"};
-        ">
-          Pagável em ${note.paymentLocation}.
-        </p>
-      </div>
-      
-      <!-- 7. Seção EMITENTE -->
-      <div style="
-        flex-shrink: 0;
-        margin-bottom: ${marginBottomEmitente};
-      ">
-        <h2 style="
-          font-weight: bold;
-          font-size: ${fontSizeEmitente};
-          text-transform: uppercase;
-          line-height: 1.3;
-          margin: 0 0 1mm 0;
-        ">
-          EMITENTE
-        </h2>
-        
         <div style="
-          line-height: ${lineHeight};
-          font-size: ${fontSizeBody};
+          width: 100%;
+          box-sizing: border-box;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
         ">
-          <!-- Nome -->
-          <div style="margin-bottom: 1mm;">
-            <span style="font-weight: bold; display: inline-block;">Nome:</span>
-            <span style="margin-left: 2mm;">${note.emitterName}</span>
-          </div>
-          
-          <!-- CPF -->
-          <div style="margin-bottom: 1mm;">
-            <span style="font-weight: bold; display: inline-block;">CPF:</span>
-            <span style="margin-left: 2mm;">${note.emitterCPF}</span>
-          </div>
-          
-          <!-- Endereço -->
-          <div>
-            <span style="font-weight: bold; display: inline-block; vertical-align: top;">Endereço:</span>
-            <span style="margin-left: 2mm; display: inline-block; width: calc(100% - 22mm);">${note.emitterAddress}</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 8. Local e Data e Assinatura -->
-      <div style="
-        margin-top: auto;
-        padding-top: ${smallSize ? "2mm" : "5mm"};
-        flex-shrink: 0;
-      ">
-        <!-- Local e Data -->
-        <div style="
-          text-align: left;
-          margin-bottom: ${smallSize ? "8mm" : "15mm"};
-          font-size: ${fontSizeBody};
-        ">
-          <p style="margin: 0;">
-            ${note.city}, ${formatDate(note.issueDate)}.
-          </p>
-        </div>
-        
-        <!-- Espaço para assinatura -->
-        <div style="
-          flex-shrink: 0;
-        ">
+          <!-- 1. Título Principal -->
           <div style="
-            width: 70%;
-            height: 1px;
-            background-color: #000;
-          "></div>
-          <p style="
-            margin: 2mm 0 0 0;
-            font-weight: bold;
-            font-size: ${fontSizeBody};
-            margin-left: 15mm; 
-            text-transform: uppercase;
-            line-height: 1.3;
+            text-align: center; 
+            margin: 0;
           ">
-            ${note.emitterName.toUpperCase()}
-          </p>
+            <h1 style="
+              font-size: ${fontSizeTitle}; 
+              font-weight: bold; 
+              margin: 0;
+              text-transform: uppercase;
+              line-height: 2;
+              text-decoration: underline black;
+            ">
+              NOTA PROMISSÓRIA
+            </h1>
+          </div>
+          
+          <!-- 2 e 3. Número da Nota e Vencimento -->
+          <div style="
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin: 0;
+            padding: 0;
+            line-height: 1.2;
+          ">
+            <!-- Nº da Nota -->
+            <div style="transform: translateY(-1.5mm);">
+              <span style="font-weight: bold; font-size: ${fontSizeBody};">Nº:</span>
+              <span style="margin-left: 1mm; font-size: ${fontSizeBody};">${note.number}</span>
+            </div>
+
+            <!-- Vencimento e Valor -->
+            <div style="text-align: right;">
+              <div style="margin: 0;">
+                <span style="font-weight: bold; font-size: ${fontSizeBody};">Vencimento:</span>
+                <span style="margin-left: 1mm; font-size: ${fontSizeBody};">${formatDateDDMMYYYY(note.dueDate)}</span>
+              </div>
+              <div style="margin-top: 0.5mm;">
+                <span style="
+                  font-weight: bold;
+                  font-size: ${fontSizeValue};
+                  display: inline-block;
+                ">
+                  Valor: ${formatCurrency(note.amount)}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 4. Corpo do Texto -->
+          <div style="
+            margin-bottom: 5mm;
+          ">
+            <p style="
+              text-align: justify;
+              line-height: 1.6;
+              margin: 0;
+              font-size: ${fontSizeBody};
+            ">
+              Aos ${formatFullDate(note.dueDate)}, pagarei por esta nota promissória à ${note.beneficiaryName}, CNPJ n° ${note.beneficiaryCNPJ}, ou à sua ordem, a quantia de <strong>${note.formattedAmount}</strong>, em moeda corrente nacional.
+            </p>
+            
+            <!-- 6. Local de Pagamento -->
+            <p style="
+              text-align: left;
+              line-height: 1.6;
+              font-size: ${fontSizeBody};
+              margin: 0;
+            ">
+              Pagável em ${note.paymentLocation}.
+            </p>
+          </div>
+
+          <!-- 7. Seção EMITENTE -->
+          <div style="
+            margin-bottom: 4mm;
+            flex-shrink: 0;
+          ">
+            <h2 style="
+              font-weight: bold;
+              font-size: ${fontSizeBody};
+              text-transform: uppercase;
+              line-height: 1.3;
+              margin: 0;
+            ">
+              EMITENTE
+            </h2>
+            
+            <div style="
+              line-height: 1.8;
+              font-size: ${fontSizeBody};
+            ">
+              <!-- Nome -->
+              <span style="font-weight: bold; display: inline-block; font-size: ${fontSizeBody};">Nome:</span>
+              <span style="font-size: ${fontSizeBody};">${note.emitterName}</span>
+              <!-- CPF -->
+              <div>
+                <span style="font-weight: bold; display: inline-block; font-size: ${fontSizeBody};">CPF:</span>
+                <span style="font-size: ${fontSizeBody};">${note.emitterCPF}</span>
+              </div>
+              
+              <!-- Endereço -->
+              <div>
+                <span style="font-weight: bold; display: inline-block; vertical-align: top; font-size: ${fontSizeBody};">Endereço:</span>
+                <span style="font-size: ${fontSizeBody};">${note.emitterAddress}</span>
+              </div>
+            </div>
+          </div>
+    
+          <!-- 8. Local e Data -->
+          <div style="
+            text-align: left;
+            flex-shrink: 0;
+            margin-bottom: 15mm;
+            font-size: ${fontSizeBody};
+          ">
+            <p style="margin: 0;">
+              ${note.city}, ${formatDate(note.issueDate)}.
+            </p>
+          </div>
+          
+          <!-- Espaço para assinatura -->
+          <div style="
+            flex-shrink: 0;
+            bottom: 10mm;
+            left: 0;
+            right: 0;
+          ">
+            <div style="
+              width: 70%;
+              height: 1px;
+              background-color: #000;
+            "></div>
+            <p style="
+              margin: 0 0 0 15mm;
+              font-weight: bold;
+              font-size: ${fontSizeBody};
+              text-transform: uppercase;
+              line-height: 1.3;
+            ">
+              ${note.emitterName.toUpperCase()}
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-`;
+    `;
   };
 
   // Função para criar HTML de uma página com múltiplas notas
   const createPageHTML = (notes: PromissoryNote[], pageIndex: number) => {
     const smallSize = notesPerPage > 1;
 
+    // Calcular dimensões das notas
+    let noteWidth = 150; // mm padrão
+    let noteHeight = 100; // mm padrão
+
+    if (savePaper && printMultiple && notesPerPage > 1) {
+      noteWidth = 140; // mm reduzido
+      noteHeight = 93; // mm reduzido
+    }
+
+    // Calcular quantas notas cabem por linha
+    const maxWidth = 210; // largura A4 em mm
+    const notesPerRow = Math.floor(maxWidth / noteWidth);
+
+    // Para economizar papel, sempre 3 na horizontal e 2 na vertical
+    let actualNotesPerRow = notesPerRow;
+    let rowsPerPage = Math.ceil(notesPerPage / notesPerRow);
+
+    if (savePaper && printMultiple && notesPerPage > 1) {
+      // Forçar 3 na horizontal quando em modo economizar papel
+      actualNotesPerRow = 3;
+      rowsPerPage = Math.ceil(notesPerPage / 3);
+    }
+
+    // Altura da página A4
+    const pageHeight = 297; // mm
+    const maxRows = Math.floor(pageHeight / noteHeight);
+
+    // Limitar rows se necessário
+    if (rowsPerPage > maxRows) {
+      rowsPerPage = maxRows;
+    }
+
     let html = `
-      <div class="page-container" id="page-${pageIndex}" style="
-        width: 210mm;
-        min-height: 297mm;
-        background-color: white;
-        box-sizing: border-box;
-        font-family: Arial, Helvetica, sans-serif;
-        padding: 0;
-        page-break-after: always;
-        display: flex;
-        flex-direction: column;
-        gap: 2mm;
-      ">
-    `;
+    <div class="page-container" id="page-${pageIndex}" style="
+      width: 210mm;
+      min-height: 297mm;
+      background-color: white;
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+      padding: 0;
+      page-break-after: always;
+      display: grid;
+      grid-template-columns: repeat(${actualNotesPerRow}, ${noteWidth}mm);
+      grid-auto-rows: ${noteHeight}mm;
+      gap: 0;
+      align-content: start;
+    ">
+  `;
 
     notes.forEach((note, index) => {
       html += createNoteHTML(note, smallSize, true);
@@ -400,13 +437,10 @@ export default function ExportControls({
     html += "</div>";
     return html;
   };
-
   // Criar HTML para múltiplas notas com paginação
   const createMultipleNotesHTML = (notes: PromissoryNote[]) => {
-    const smallSize = notesPerPage > 1;
-
-    if (!printMultiple || notesPerPage === 1) {
-      // Uma nota por página ou não é múltiplo
+    if (!printMultiple) {
+      // UMA NOTA POR PÁGINA - MAS TODAS AS NOTAS DEVEM SER INCLUÍDAS
       let html = `
         <div id="export-notes-container" style="
           width: 210mm;
@@ -419,13 +453,25 @@ export default function ExportControls({
 
       notes.forEach((note, index) => {
         if (index > 0) html += '<div style="page-break-before: always;"></div>';
+        // Para cada nota, criar uma página com a nota centralizada
+        html += `
+          <div style="
+            width: 210mm;
+            min-height: 297mm;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            page-break-after: always;
+          ">
+        `;
         html += createNoteHTML(note, false, false);
+        html += "</div>";
       });
 
       html += "</div>";
       return html;
     } else {
-      // Múltiplas notas por página com paginação
+      // Múltiplas notas por página
       let html = `
         <div id="export-notes-container" style="
           width: 210mm;
@@ -471,9 +517,7 @@ export default function ExportControls({
     setIsExporting(true);
     try {
       const notesToExport = generatedNotes.length > 0 ? generatedNotes : [note];
-      const html = printMultiple
-        ? createMultipleNotesHTML(notesToExport)
-        : createMultipleNotesHTML([notesToExport[0]]);
+      const html = createMultipleNotesHTML(notesToExport); // SEMPRE usar todas as notas
 
       const tempElement = createTempElement(html);
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -491,25 +535,25 @@ export default function ExportControls({
         compress: true,
       });
 
-      if (!printMultiple || notesPerPage === 1) {
-        // Modo simples: uma nota por página
-        const noteContainers = container.querySelectorAll(
-          ".note-container:not(.page-note)",
+      if (!printMultiple) {
+        // Modo uma nota por página
+        const pageDivs = container.querySelectorAll(
+          'div[style*="page-break-after: always"]',
         );
 
-        for (let i = 0; i < noteContainers.length; i++) {
+        for (let i = 0; i < pageDivs.length; i++) {
           if (i > 0) {
             pdf.addPage();
           }
 
-          const canvas = await html2canvas(noteContainers[i] as HTMLElement, {
+          const canvas = await html2canvas(pageDivs[i] as HTMLElement, {
             useCORS: true,
             logging: false,
-            width: (noteContainers[i] as HTMLElement).offsetWidth,
-            height: (noteContainers[i] as HTMLElement).offsetHeight,
+            width: (pageDivs[i] as HTMLElement).offsetWidth,
+            height: (pageDivs[i] as HTMLElement).offsetHeight,
           });
 
-          const imgData = canvas.toDataURL("image/png");
+          const imgData = canvas.toDataURL("image/png", 1.0);
 
           const pageWidth = pdf.internal.pageSize.getWidth();
           const pageHeight = pdf.internal.pageSize.getHeight();
@@ -517,24 +561,7 @@ export default function ExportControls({
           const imgWidth = pageWidth;
           const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-          let finalHeight = imgHeight;
-          let finalWidth = imgWidth;
-
-          if (imgHeight > pageHeight) {
-            finalHeight = pageHeight;
-            finalWidth = (canvas.width * finalHeight) / canvas.height;
-          }
-
-          pdf.addImage(
-            imgData,
-            "PNG",
-            0,
-            0,
-            finalWidth,
-            finalHeight,
-            "",
-            "FAST",
-          );
+          pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight, "", "FAST");
         }
       } else {
         // Modo múltiplo: várias notas por página
@@ -552,32 +579,16 @@ export default function ExportControls({
             height: (pageContainers[i] as HTMLElement).offsetHeight,
           });
 
-          const imgData = canvas.toDataURL("image/png");
+          const imgData = canvas.toDataURL("image/png", 1.0);
 
           const pageWidth = pdf.internal.pageSize.getWidth();
           const pageHeight = pdf.internal.pageSize.getHeight();
 
+          // Ajustar para caber na página A4
           const imgWidth = pageWidth;
           const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-          let finalHeight = imgHeight;
-          let finalWidth = imgWidth;
-
-          if (imgHeight > pageHeight) {
-            finalHeight = pageHeight;
-            finalWidth = (canvas.width * finalHeight) / canvas.height;
-          }
-
-          pdf.addImage(
-            imgData,
-            "PNG",
-            0,
-            0,
-            finalWidth,
-            finalHeight,
-            "",
-            "FAST",
-          );
+          pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight, "", "FAST");
         }
       }
 
@@ -597,32 +608,54 @@ export default function ExportControls({
     setIsExporting(true);
     try {
       const notesToExport = generatedNotes.length > 0 ? generatedNotes : [note];
-      const html = printMultiple
-        ? createMultipleNotesHTML(notesToExport)
-        : createNoteHTML(notesToExport[0], false, false);
+      const html = createMultipleNotesHTML(notesToExport); // SEMPRE usar todas as notas
 
       const tempElement = createTempElement(html);
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const container = tempElement.querySelector(
-        printMultiple ? "#export-notes-container" : ".note-container",
-      ) as HTMLElement;
-      if (!container) throw new Error("Container não encontrado");
+      if (!printMultiple) {
+        // Exportar cada página separadamente
+        const pageDivs = tempElement.querySelectorAll(
+          'div[style*="page-break-after: always"]',
+        );
 
-      const canvas = await html2canvas(container, {
-        useCORS: true,
-        logging: false,
-        width: container.offsetWidth,
-        height: container.offsetHeight,
-      });
+        for (let i = 0; i < pageDivs.length; i++) {
+          const canvas = await html2canvas(pageDivs[i] as HTMLElement, {
+            useCORS: true,
+            logging: false,
+            width: (pageDivs[i] as HTMLElement).offsetWidth,
+            height: (pageDivs[i] as HTMLElement).offsetHeight,
+          });
+
+          const link = document.createElement("a");
+          link.download = `nota-promissoria-${i + 1}-${new Date().toISOString().split("T")[0]}.png`;
+          link.href = canvas.toDataURL("image/png", 1.0);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } else {
+        // Exportar múltiplas notas como uma imagem por página
+        const pageContainers = tempElement.querySelectorAll(".page-container");
+
+        for (let i = 0; i < pageContainers.length; i++) {
+          const canvas = await html2canvas(pageContainers[i] as HTMLElement, {
+            useCORS: true,
+            logging: false,
+            width: (pageContainers[i] as HTMLElement).offsetWidth,
+            height: (pageContainers[i] as HTMLElement).offsetHeight,
+          });
+
+          const link = document.createElement("a");
+          link.download = `notas-promissorias-pagina-${i + 1}-${new Date().toISOString().split("T")[0]}.png`;
+          link.href = canvas.toDataURL("image/png", 1.0);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      }
 
       document.body.removeChild(tempElement);
-      const link = document.createElement("a");
-      link.download = `nota${generatedNotes.length > 1 ? "s" : ""}-promissoria${generatedNotes.length > 1 ? "s" : ""}-${new Date().toISOString().split("T")[0]}.png`;
-      link.href = canvas.toDataURL("image/png", 1.0);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
     } catch (error) {
       console.error("Erro ao exportar imagem:", error);
       alert("Erro ao exportar imagem. Tente novamente.");
@@ -634,9 +667,7 @@ export default function ExportControls({
   const printNote = () => {
     try {
       const notesToExport = generatedNotes.length > 0 ? generatedNotes : [note];
-      const html = printMultiple
-        ? createMultipleNotesHTML(notesToExport)
-        : createMultipleNotesHTML([notesToExport[0]]);
+      const html = createMultipleNotesHTML(notesToExport); // SEMPRE usar todas as notas
 
       const printWindow = window.open("", "_blank");
       if (!printWindow) {
@@ -668,7 +699,7 @@ export default function ExportControls({
                 }
                 .note-container {
                   box-shadow: none !important;
-                  border: none !important;
+                  border: 1px solid #000 !important;
                 }
                 #export-notes-container {
                   padding: 0 !important;
@@ -705,7 +736,8 @@ export default function ExportControls({
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-gray-800">
-        Exportar Documento
+        Exportar Documento {""}{" "}
+        <span className="text-red-600">(ARQUIVO PDF ESTÁVEL)</span>
       </h3>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -766,9 +798,17 @@ export default function ExportControls({
 
       <div className="text-xs text-gray-500 pt-2 border-t border-gray-200">
         <p className="text-center">
-          {printMultiple && notesPerPage > 1
-            ? `Gerando ${generatedNotes.length} nota(s) em ${Math.ceil(generatedNotes.length / notesPerPage)} página(s)`
-            : "Para melhor qualidade, use 'Imprimir' ou 'PDF'"}
+          {generatedNotes.length > 1
+            ? `Gerando ${generatedNotes.length} nota(s)${
+                printMultiple
+                  ? ` em ${Math.ceil(generatedNotes.length / notesPerPage)} página(s)`
+                  : ""
+              } - ${
+                savePaper && printMultiple && notesPerPage > 1
+                  ? "Dimensões reduzidas: 140mm x 93mm (até 5 notas/página)"
+                  : "Dimensões padrão: 150mm x 100mm"
+              }`
+            : "Dimensões padrão: 150mm de largura x 100mm de altura"}
         </p>
       </div>
     </div>

@@ -33,10 +33,12 @@ export default function NoteEditor() {
   const [generatedNotes, setGeneratedNotes] = useState<PromissoryNote[]>([]);
   const [printMultiple, setPrintMultiple] = useState(false);
   const [notesPerPage, setNotesPerPage] = useState(1);
-  const [amountError, setAmountError] = useState<string>(""); // Estado para erro
+  const [savePaper, setSavePaper] = useState(false);
+  const [amountError, setAmountError] = useState<string>("");
 
   // Calcular isMultipleLayout diretamente a partir dos estados (lógica derivada)
   const isMultipleLayout = printMultiple && notesPerPage > 1;
+  const isSavePaperMode = savePaper && printMultiple && notesPerPage > 1;
 
   // Função para validar e formatar valor monetário
   const handleAmountChange = (value: string) => {
@@ -320,7 +322,7 @@ export default function NoteEditor() {
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 mb-6">
             {/* Número automático - somente leitura */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
@@ -334,10 +336,10 @@ export default function NoteEditor() {
               </p>
             </div>
 
-            {/* Configurações de Impressão */}
+            {/* Informações da Nota */}
             <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <h3 className="font-semibold text-gray-800">
-                Configurações de Impressão
+                Informações da Nota
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -446,43 +448,65 @@ export default function NoteEditor() {
                 onChange={(value) => updateField("issueDate", value)}
               />
             </div>
+            <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h3 className="font-semibold text-gray-800">
+                Configurações de Impressão
+              </h3>
 
-            <div className="flex items-center justify-between mb-4">
-              <label className="text-sm font-medium text-gray-700">
-                Imprimir múltiplas notas por página
-              </label>
-              <input
-                type="checkbox"
-                checked={printMultiple}
-                onChange={(e) => setPrintMultiple(e.target.checked)}
-                className="h-4 w-4"
-              />
-            </div>
-            {printMultiple && (
-              <div className="space-y-2 mb-4">
-                <label className="block text-sm font-medium text-gray-700">
-                  Notas por página
+              {/* Checkbox para economizar papel */}
+              {/* <div className="flex items-center justify-between mb-4">
+                <label className="text-sm font-medium text-gray-700">
+                  Economizar papel ao imprimir varias notas (Não recomendado
+                  para 3 notas ou menos)
                 </label>
-                <div className="flex space-x-2">
-                  {[1, 2, 3, 4].map((count) => (
-                    <button
-                      key={count}
-                      onClick={() => setNotesPerPage(count)}
-                      className={`flex-1 py-2 rounded-lg ${
-                        notesPerPage === count
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-200 hover:bg-gray-300"
-                      }`}
-                    >
-                      {count} por página
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-500">
-                  *Layout otimizado para papel tamanho carta
-                </p>
+                <input
+                  type="checkbox"
+                  checked={savePaper}
+                  onChange={(e) => setSavePaper(e.target.checked)}
+                  className="h-4 w-4"
+                />
+              </div> */}
+
+              <div className="flex items-center justify-between mb-4">
+                <label className="text-sm font-medium text-gray-700">
+                  Imprimir múltiplas notas por página
+                </label>
+                <input
+                  type="checkbox"
+                  checked={printMultiple}
+                  onChange={(e) => setPrintMultiple(e.target.checked)}
+                  className="h-4 w-4"
+                />
               </div>
-            )}
+
+              {printMultiple && (
+                <div className="space-y-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Notas por página
+                  </label>
+                  <div className="flex space-x-2">
+                    {[1, 2, 3].map((count) => (
+                      <button
+                        key={count}
+                        onClick={() => setNotesPerPage(count)}
+                        className={`flex-1 py-2 rounded-lg ${
+                          notesPerPage === count
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-200 hover:bg-gray-300"
+                        }`}
+                      >
+                        {count} por página
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {savePaper
+                      ? "*Layout otimizado: Até 5 notas por página A4"
+                      : "*Layout padrão: Até 3 notas por página A4"}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Controles de Parcelamento */}
@@ -500,6 +524,7 @@ export default function NoteEditor() {
               }
               printMultiple={printMultiple}
               notesPerPage={notesPerPage}
+              savePaper={savePaper}
             />
           </div>
         </div>
@@ -512,7 +537,8 @@ export default function NoteEditor() {
         <div className="sticky top-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-800">
-              Pré-visualização
+              Pré-visualização{" "}
+              <span className="text-red-600">(Em Desenvolvimento)</span>
               {isMultipleLayout && generatedNotes.length > 0 && (
                 <span className="text-sm font-normal text-blue-600 ml-2">
                   (Layout reduzido - {notesPerPage} notas por página)
