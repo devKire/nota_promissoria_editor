@@ -1,3 +1,4 @@
+// components/FieldEditor.tsx
 interface FieldEditorProps {
   label: string;
   value: string;

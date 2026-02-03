@@ -1,3 +1,5 @@
+// app/page.tsx
+
 import NoteEditor from "./components/NoteEditor";
 
 export default function Home() {
