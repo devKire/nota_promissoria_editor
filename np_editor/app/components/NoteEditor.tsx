@@ -6,6 +6,7 @@ import NotePreview from "./NotePreview";
 import FieldEditor from "./FieldEditor";
 import ExportControls from "./ExportControls";
 import InstallmentControls from "./InstallmentControls";
+import { RotateCcw } from "lucide-react";
 
 import {
   defaultNote,
@@ -38,10 +39,12 @@ export default function NoteEditor() {
 
   // Calcular isMultipleLayout diretamente a partir dos estados (lógica derivada)
   const isMultipleLayout = printMultiple && notesPerPage > 1;
-  const isSavePaperMode = savePaper && printMultiple && notesPerPage > 1;
+  const showSavePaperOption = installments > 3 || generatedNotes.length > 3;
+  const hasGeneratedNotes = generatedNotes.length > 0;
 
-  // Função para validar e formatar valor monetário
   const handleAmountChange = (value: string) => {
+    if (hasGeneratedNotes) return; // Não permitir edição após gerar notas
+
     // Remover todos os caracteres não numéricos exceto ponto e vírgula
     let cleanedValue = value.replace(/[^\d,.]/g, "");
 
@@ -83,6 +86,8 @@ export default function NoteEditor() {
   };
 
   const updateField = (field: keyof PromissoryNote, value: string | number) => {
+    if (hasGeneratedNotes) return; // Não permitir edição após gerar notas
+
     setNote((prev) => {
       const updated = {
         ...prev,
@@ -103,6 +108,7 @@ export default function NoteEditor() {
   };
 
   const handleInstallmentsChange = (count: number) => {
+    if (hasGeneratedNotes) return; // Não permitir edição após gerar notas
     setInstallments(count);
   };
 
@@ -133,6 +139,37 @@ export default function NoteEditor() {
     }
 
     setGeneratedNotes(notes);
+  };
+
+  // Função para reiniciar e permitir novas edições
+  const restartEditing = () => {
+    setGeneratedNotes([]);
+    setInstallments(1);
+    setPrintMultiple(false);
+    setNotesPerPage(1);
+    setSavePaper(false);
+
+    // Gerar um novo número para a nota
+    const newNumber = generateNoteNumber();
+    setNote({
+      ...defaultNote,
+      number: newNumber,
+      amount: note.amount, // Manter o valor
+      beneficiaryName: note.beneficiaryName, // Manter os dados preenchidos
+      beneficiaryCNPJ: note.beneficiaryCNPJ,
+      emitterName: note.emitterName,
+      emitterCPF: note.emitterCPF,
+      emitterAddress: note.emitterAddress,
+      city: note.city,
+      state: note.state,
+      paymentLocation: note.paymentLocation,
+      dueDate: note.dueDate,
+      issueDate: new Date().toISOString().split("T")[0], // Data atual
+      formattedAmount: formatNumberToWords(note.amount),
+      installments: 1,
+      currentInstallment: 1,
+      totalInstallments: 1,
+    });
   };
 
   const formatCurrency = (value: number) => {
@@ -308,6 +345,34 @@ export default function NoteEditor() {
         className={`lg:w-1/2 ${activeTab === "edit" ? "block" : "hidden lg:block"}`}
       >
         <div className="bg-white rounded-lg shadow-lg p-6 sticky top-6">
+          {/* Botão de Reiniciar no topo */}
+          {hasGeneratedNotes && (
+            <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="font-bold text-green-800">
+                    ✓ Parcelas Geradas com Sucesso!
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {generatedNotes.length} nota(s) promissória(s) gerada(s)
+                  </p>
+                </div>
+                <button
+                  onClick={restartEditing}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Nova Edição
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Para editar os dados, clique em &quot;Nova Edição&quot;. Os
+                campos atuais estão bloqueados para evitar alterações nas notas
+                já geradas.
+              </p>
+            </div>
+          )}
+
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800">
               Editar Nota Promissória
@@ -348,6 +413,7 @@ export default function NoteEditor() {
                   type="date"
                   value={note.dueDate}
                   onChange={(value) => updateField("dueDate", value)}
+                  disabled={hasGeneratedNotes}
                 />
 
                 <div className="space-y-2">
@@ -358,6 +424,7 @@ export default function NoteEditor() {
                     onChange={handleAmountChange}
                     prefix="R$"
                     placeholder="0,00"
+                    disabled={hasGeneratedNotes}
                   />
                   {amountError && (
                     <p className="text-sm text-red-600">{amountError}</p>
@@ -386,6 +453,7 @@ export default function NoteEditor() {
                 value={note.beneficiaryName}
                 onChange={(value) => updateField("beneficiaryName", value)}
                 placeholder="Nome do beneficiário"
+                disabled={hasGeneratedNotes}
               />
 
               <FieldEditor
@@ -393,6 +461,7 @@ export default function NoteEditor() {
                 value={note.beneficiaryCNPJ}
                 onChange={(value) => updateField("beneficiaryCNPJ", value)}
                 placeholder="00.000.000/0000-00"
+                disabled={hasGeneratedNotes}
               />
 
               <FieldEditor
@@ -400,6 +469,7 @@ export default function NoteEditor() {
                 value={note.emitterName}
                 onChange={(value) => updateField("emitterName", value)}
                 placeholder="Nome completo do emitente"
+                disabled={hasGeneratedNotes}
               />
 
               <FieldEditor
@@ -407,6 +477,7 @@ export default function NoteEditor() {
                 value={note.emitterCPF}
                 onChange={(value) => updateField("emitterCPF", value)}
                 placeholder="000.000.000-00"
+                disabled={hasGeneratedNotes}
               />
 
               <FieldEditor
@@ -415,6 +486,7 @@ export default function NoteEditor() {
                 onChange={(value) => updateField("emitterAddress", value)}
                 placeholder="Endereço completo"
                 multiline
+                disabled={hasGeneratedNotes}
               />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -423,6 +495,7 @@ export default function NoteEditor() {
                   value={note.city}
                   onChange={(value) => updateField("city", value)}
                   placeholder="Cidade"
+                  disabled={hasGeneratedNotes}
                 />
 
                 <FieldEditor
@@ -431,6 +504,7 @@ export default function NoteEditor() {
                   onChange={(value) => updateField("state", value)}
                   placeholder="Estado"
                   maxLength={2}
+                  disabled={hasGeneratedNotes}
                 />
               </div>
 
@@ -439,6 +513,7 @@ export default function NoteEditor() {
                 value={note.paymentLocation}
                 onChange={(value) => updateField("paymentLocation", value)}
                 placeholder="Ex: Indaial/SC"
+                disabled={hasGeneratedNotes}
               />
 
               <FieldEditor
@@ -446,26 +521,31 @@ export default function NoteEditor() {
                 type="date"
                 value={note.issueDate}
                 onChange={(value) => updateField("issueDate", value)}
+                disabled={hasGeneratedNotes}
               />
             </div>
+
+            {/* Configurações de Impressão - ainda editáveis após gerar notas */}
             <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <h3 className="font-semibold text-gray-800">
                 Configurações de Impressão
               </h3>
 
               {/* Checkbox para economizar papel */}
-              {/* <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Economizar papel ao imprimir varias notas (Não recomendado
-                  para 3 notas ou menos)
-                </label>
-                <input
-                  type="checkbox"
-                  checked={savePaper}
-                  onChange={(e) => setSavePaper(e.target.checked)}
-                  className="h-4 w-4"
-                />
-              </div> */}
+              {showSavePaperOption && (
+                <div className="flex items-center justify-between mb-4">
+                  <label className="text-sm font-medium text-gray-700">
+                    Economizar papel ao imprimir varias notas
+                  </label>
+                  <input
+                    type="checkbox"
+                    checked={savePaper}
+                    onChange={(e) => setSavePaper(e.target.checked)}
+                    className="h-4 w-4"
+                    disabled={hasGeneratedNotes}
+                  />
+                </div>
+              )}
 
               <div className="flex items-center justify-between mb-4">
                 <label className="text-sm font-medium text-gray-700">
@@ -476,9 +556,9 @@ export default function NoteEditor() {
                   checked={printMultiple}
                   onChange={(e) => setPrintMultiple(e.target.checked)}
                   className="h-4 w-4"
+                  disabled={hasGeneratedNotes}
                 />
               </div>
-
               {printMultiple && (
                 <div className="space-y-2 mb-4">
                   <label className="block text-sm font-medium text-gray-700">
@@ -489,6 +569,7 @@ export default function NoteEditor() {
                       <button
                         key={count}
                         onClick={() => setNotesPerPage(count)}
+                        disabled={hasGeneratedNotes}
                         className={`flex-1 py-2 rounded-lg ${
                           notesPerPage === count
                             ? "bg-blue-500 text-white"
@@ -515,6 +596,7 @@ export default function NoteEditor() {
             onInstallmentsChange={handleInstallmentsChange}
             onGenerate={generateInstallments}
             generatedNotes={generatedNotes}
+            hasGeneratedNotes={hasGeneratedNotes}
           />
           <div className="mt-8 pt-6 border-t">
             <ExportControls
@@ -554,6 +636,19 @@ export default function NoteEditor() {
               </button>
             </div>
           </div>
+
+          {/* Botão de Reiniciar também no preview em mobile */}
+          {hasGeneratedNotes && (
+            <div className="mb-4 lg:hidden p-3 bg-green-50 rounded-lg border border-green-200">
+              <button
+                onClick={restartEditing}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Nova Edição
+              </button>
+            </div>
+          )}
 
           {/* Mostrar preview das parcelas ou nota única */}
           {generatedNotes.length > 0 ? (

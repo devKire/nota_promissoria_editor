@@ -10,6 +10,7 @@ interface InstallmentControlsProps {
   onInstallmentsChange: (count: number) => void;
   onGenerate: () => void;
   generatedNotes: PromissoryNote[];
+  hasGeneratedNotes?: boolean;
 }
 
 export default function InstallmentControls({
@@ -17,6 +18,7 @@ export default function InstallmentControls({
   onInstallmentsChange,
   onGenerate,
   generatedNotes,
+  hasGeneratedNotes = false,
 }: InstallmentControlsProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -63,7 +65,8 @@ export default function InstallmentControls({
                 onChange={(e) =>
                   handleInstallmentChange(parseInt(e.target.value))
                 }
-                className="w-full"
+                disabled={hasGeneratedNotes}
+                className={`w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer ${hasGeneratedNotes ? "opacity-50 cursor-not-allowed" : ""}`}
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>1</span>
@@ -89,7 +92,7 @@ export default function InstallmentControls({
         {/* Botão para gerar parcelas */}
         <button
           onClick={handleGenerate}
-          disabled={isGenerating}
+          disabled={isGenerating || hasGeneratedNotes}
           className="w-full py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition disabled:opacity-50"
         >
           {isGenerating

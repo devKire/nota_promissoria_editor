@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FileImage, Printer, File, Copy } from "lucide-react";
+import { FileImage, Printer, File, Copy } from "lucide-react";
 import { PromissoryNote } from "@/lib/default-note";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";

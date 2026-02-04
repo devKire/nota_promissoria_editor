@@ -8,6 +8,7 @@ interface FieldEditorProps {
   prefix?: string;
   multiline?: boolean;
   maxLength?: number;
+  disabled?: boolean;
 }
 
 export default function FieldEditor({
@@ -19,6 +20,7 @@ export default function FieldEditor({
   prefix,
   multiline = false,
   maxLength,
+  disabled = false,
 }: FieldEditorProps) {
   return (
     <div className="space-y-2">
@@ -47,6 +49,7 @@ export default function FieldEditor({
             className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
               prefix ? "pl-10" : ""
             }`}
+            disabled={disabled}
             maxLength={maxLength}
           />
         </div>
