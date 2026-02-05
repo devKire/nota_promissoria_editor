@@ -1,7 +1,7 @@
 // components/NoteEditor.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import NotePreview from "./NotePreview";
 import FieldEditor from "./FieldEditor";
 import ExportControls from "./ExportControls";
@@ -15,9 +15,9 @@ import {
   formatNumberToWords,
   calculateInstallmentDates,
 } from "@/lib/default-note";
+import NotePreviewMb from "./NotePreviewMb";
 
 export default function NoteEditor() {
-  // Inicializar a nota com o número gerado automaticamente
   const [note, setNote] = useState<PromissoryNote>(() => {
     const newNumber = generateNoteNumber();
     return {
@@ -32,14 +32,41 @@ export default function NoteEditor() {
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
   const [installments, setInstallments] = useState(1);
   const [generatedNotes, setGeneratedNotes] = useState<PromissoryNote[]>([]);
-  const [printMultiple, setPrintMultiple] = useState(false);
-  const [notesPerPage, setNotesPerPage] = useState(1);
   const [savePaper, setSavePaper] = useState(false);
   const [amountError, setAmountError] = useState<string>("");
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Calcular isMultipleLayout diretamente a partir dos estados (lógica derivada)
-  const isMultipleLayout = printMultiple && notesPerPage > 1;
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024); // 👈 1024px = breakpoint lg padrão do Tailwind
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+  // Calcular automaticamente notas por página
+  const calculateNotesPerPage = () => {
+    const totalNotes = generatedNotes.length > 0 ? generatedNotes.length : 1;
+
+    if (savePaper) {
+      // Modo economizar papel: máximo 5 notas por página
+      return 5;
+    } else {
+      // Modo normal: segue as regras 1=1, 2=2, 3=3 por página
+      if (totalNotes === 1) return 1;
+      if (totalNotes === 2) return 2;
+      if (totalNotes >= 3) return 3; // 3 ou mais = 3 por página
+      return 1;
+    }
+  };
+
+  const notesPerPage = calculateNotesPerPage();
+
+  // Mostrar opção "economizar papel" apenas se houver mais de 3 notas
   const showSavePaperOption = installments > 3 || generatedNotes.length > 3;
+
   const hasGeneratedNotes = generatedNotes.length > 0;
 
   const handleAmountChange = (value: string) => {
@@ -123,7 +150,7 @@ export default function NoteEditor() {
     const notes: PromissoryNote[] = [];
 
     for (let i = 0; i < installments; i++) {
-      const installmentNumber = `${(i + 1).toString().padStart(2, "0")}/${installments.toString().padStart(2, "0")}`;
+      const installmentNumber = `${(i + 1).toString().padStart(2, "0")} de ${installments.toString().padStart(2, "0")}`;
 
       notes.push({
         ...note,
@@ -145,8 +172,6 @@ export default function NoteEditor() {
   const restartEditing = () => {
     setGeneratedNotes([]);
     setInstallments(1);
-    setPrintMultiple(false);
-    setNotesPerPage(1);
     setSavePaper(false);
 
     // Gerar um novo número para a nota
@@ -329,13 +354,25 @@ export default function NoteEditor() {
     }
   };
 
-  const formatDateShort = (dateString: string) => {
-    try {
-      const [year, month, day] = dateString.split("-");
-      return `${day}/${month}/${year}`;
-    } catch {
-      return dateString;
-    }
+  // Máscara CPF (000.000.000-00)
+  const formatCPF = (value: string) => {
+    return value
+      .replace(/\D/g, "")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2")
+      .substring(0, 14);
+  };
+
+  // Máscara CNPJ (00.000.000/0000-00)
+  const formatCNPJ = (value: string) => {
+    return value
+      .replace(/\D/g, "")
+      .replace(/^(\d{2})(\d)/, "$1.$2")
+      .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+      .replace(/\.(\d{3})(\d)/, ".$1/$2")
+      .replace(/(\d{4})(\d)/, "$1-$2")
+      .substring(0, 18);
   };
 
   return (
@@ -345,34 +382,6 @@ export default function NoteEditor() {
         className={`lg:w-1/2 ${activeTab === "edit" ? "block" : "hidden lg:block"}`}
       >
         <div className="bg-white rounded-lg shadow-lg p-6 sticky top-6">
-          {/* Botão de Reiniciar no topo */}
-          {hasGeneratedNotes && (
-            <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="font-bold text-green-800">
-                    ✓ Parcelas Geradas com Sucesso!
-                  </h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {generatedNotes.length} nota(s) promissória(s) gerada(s)
-                  </p>
-                </div>
-                <button
-                  onClick={restartEditing}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Nova Edição
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Para editar os dados, clique em &quot;Nova Edição&quot;. Os
-                campos atuais estão bloqueados para evitar alterações nas notas
-                já geradas.
-              </p>
-            </div>
-          )}
-
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800">
               Editar Nota Promissória
@@ -388,23 +397,17 @@ export default function NoteEditor() {
           </div>
 
           <div className="space-y-6 mb-6">
-            {/* Número automático - somente leitura */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Número da Nota
-              </label>
-              <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
-                {note.number}
-              </div>
-              <p className="text-xs text-gray-500">
-                Número gerado automaticamente
-              </p>
-            </div>
-
             {/* Informações da Nota */}
             <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <h3 className="font-semibold text-gray-800">
-                Informações da Nota
+                Informações da Nota{" "}
+                <span className="text-sm text-gray-500">
+                  (Notas são geradas com base nestes dados; aperte{" "}
+                  <span className="inline-flex items-center px-2 py-0.5 border border-gray-300 rounded-md bg-gray-100 text-gray-700 font-mono text-xs shadow-sm">
+                    Tab
+                  </span>{" "}
+                  para navegar entre os campos)
+                </span>
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -459,7 +462,9 @@ export default function NoteEditor() {
               <FieldEditor
                 label="CNPJ do Beneficiário"
                 value={note.beneficiaryCNPJ}
-                onChange={(value) => updateField("beneficiaryCNPJ", value)}
+                onChange={(value) =>
+                  updateField("beneficiaryCNPJ", formatCNPJ(value))
+                }
                 placeholder="00.000.000/0000-00"
                 disabled={hasGeneratedNotes}
               />
@@ -475,9 +480,12 @@ export default function NoteEditor() {
               <FieldEditor
                 label="CPF do Emitente"
                 value={note.emitterCPF}
-                onChange={(value) => updateField("emitterCPF", value)}
+                onChange={(value) =>
+                  updateField("emitterCPF", formatCPF(value))
+                }
                 placeholder="000.000.000-00"
                 disabled={hasGeneratedNotes}
+                maxLength={14}
               />
 
               <FieldEditor
@@ -525,69 +533,58 @@ export default function NoteEditor() {
               />
             </div>
 
-            {/* Configurações de Impressão - ainda editáveis após gerar notas */}
-            <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h3 className="font-semibold text-gray-800">
-                Configurações de Impressão
-              </h3>
-
-              {/* Checkbox para economizar papel */}
-              {showSavePaperOption && (
-                <div className="flex items-center justify-between mb-4">
-                  <label className="text-sm font-medium text-gray-700">
-                    Economizar papel ao imprimir varias notas
+            {/* Configurações de Impressão */}
+            {showSavePaperOption && (
+              <div className="flex items-start justify-between p-4 border rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors duration-200 mb-4">
+                <div className="flex-1 pr-4">
+                  <label className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 text-green-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    Economizar papel ao imprimir várias notas
                   </label>
+                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                    Permite imprimir{" "}
+                    <span className="font-medium text-gray-800">
+                      até 5 notas por página
+                    </span>
+                    .
+                    <br />
+                    <span className="text-gray-500">
+                      Normalmente são impressas 1–3 notas (99mm x 150mm). Com
+                      este modo ativado, o layout reduz para 90mm x 120mm,
+                      otimizando o uso do papel.
+                    </span>
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
                     checked={savePaper}
                     onChange={(e) => setSavePaper(e.target.checked)}
-                    className="h-4 w-4"
                     disabled={hasGeneratedNotes}
+                    className="sr-only peer"
                   />
-                </div>
-              )}
-
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Imprimir múltiplas notas por página
+                  <div
+                    className="w-10 h-5 bg-gray-300 peer-checked:bg-green-500 rounded-full peer transition-colors duration-300
+      after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 
+      after:border after:rounded-full after:h-4 after:w-4 after:transition-all
+      peer-checked:after:translate-x-5 peer-checked:after:border-white"
+                  ></div>
                 </label>
-                <input
-                  type="checkbox"
-                  checked={printMultiple}
-                  onChange={(e) => setPrintMultiple(e.target.checked)}
-                  className="h-4 w-4"
-                  disabled={hasGeneratedNotes}
-                />
               </div>
-              {printMultiple && (
-                <div className="space-y-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Notas por página
-                  </label>
-                  <div className="flex space-x-2">
-                    {[1, 2, 3].map((count) => (
-                      <button
-                        key={count}
-                        onClick={() => setNotesPerPage(count)}
-                        disabled={hasGeneratedNotes}
-                        className={`flex-1 py-2 rounded-lg ${
-                          notesPerPage === count
-                            ? "bg-blue-500 text-white"
-                            : "bg-gray-200 hover:bg-gray-300"
-                        }`}
-                      >
-                        {count} por página
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    {savePaper
-                      ? "*Layout otimizado: Até 5 notas por página A4"
-                      : "*Layout padrão: Até 3 notas por página A4"}
-                  </p>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Controles de Parcelamento */}
@@ -598,14 +595,40 @@ export default function NoteEditor() {
             generatedNotes={generatedNotes}
             hasGeneratedNotes={hasGeneratedNotes}
           />
+
           <div className="mt-8 pt-6 border-t">
+            {/* Botão de Reiniciar no topo */}
+            {hasGeneratedNotes && (
+              <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold text-green-800">
+                      ✓ Parcelas Geradas com Sucesso, você já pode exportar!
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {generatedNotes.length} nota(s) promissória(s) gerada(s)
+                    </p>
+                  </div>
+                  <button
+                    onClick={restartEditing}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Nova Edição
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Caso queira editar os dados, clique em &quot;Nova
+                  Edição&quot;. Os campos atuais estão bloqueados para evitar
+                  alterações nas notas já geradas.
+                </p>
+              </div>
+            )}
             <ExportControls
               note={note}
               generatedNotes={
                 generatedNotes.length > 0 ? generatedNotes : [note]
               }
-              printMultiple={printMultiple}
-              notesPerPage={notesPerPage}
               savePaper={savePaper}
             />
           </div>
@@ -620,12 +643,9 @@ export default function NoteEditor() {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-800">
               Pré-visualização{" "}
-              <span className="text-red-600">(Em Desenvolvimento)</span>
-              {isMultipleLayout && generatedNotes.length > 0 && (
-                <span className="text-sm font-normal text-blue-600 ml-2">
-                  (Layout reduzido - {notesPerPage} notas por página)
-                </span>
-              )}
+              <span className="text-sm text-gray-500">
+                (O Preview será mostrado após as notas serem geradas)
+              </span>
             </h2>
             <div className="lg:hidden">
               <button
@@ -650,46 +670,25 @@ export default function NoteEditor() {
             </div>
           )}
 
-          {/* Mostrar preview das parcelas ou nota única */}
-          {generatedNotes.length > 0 ? (
-            <div className="space-y-6">
-              {generatedNotes.map((installmentNote, index) => (
-                <div key={installmentNote.id} className="mb-6">
-                  <div className="bg-blue-50 px-4 py-2 rounded-t-lg border border-blue-200">
-                    <h3 className="font-semibold text-blue-800">
-                      Parcela {installmentNote.currentInstallment} de{" "}
-                      {installmentNote.totalInstallments}
-                    </h3>
-                    <p className="text-sm text-blue-600">
-                      Vencimento: {formatDateShort(installmentNote.dueDate)} |
-                      Valor: {formatCurrency(installmentNote.amount)}
-                    </p>
-                    {isMultipleLayout && (
-                      <p className="text-xs text-blue-500 mt-1">
-                        *Tamanho reduzido para impressão múltipla
-                      </p>
-                    )}
-                  </div>
-                  <NotePreview
-                    note={installmentNote}
-                    formatCurrency={formatCurrency}
-                    formatDate={formatDate}
-                    formatFullDate={formatFullDate}
-                    formatDateDDMMYYYY={formatDateDDMMYYYY}
-                    isMultipleLayout={isMultipleLayout}
-                    notesPerPage={notesPerPage}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <NotePreview
-              note={note}
+          {/* Mostrar preview conforme o dispositivo */}
+          {isMobile ? (
+            <NotePreviewMb
+              notes={generatedNotes}
               formatCurrency={formatCurrency}
               formatDate={formatDate}
               formatFullDate={formatFullDate}
               formatDateDDMMYYYY={formatDateDDMMYYYY}
-              isMultipleLayout={isMultipleLayout}
+              savePaper={savePaper}
+              notesPerPage={notesPerPage}
+            />
+          ) : (
+            <NotePreview
+              notes={generatedNotes}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+              formatFullDate={formatFullDate}
+              formatDateDDMMYYYY={formatDateDDMMYYYY}
+              savePaper={savePaper}
               notesPerPage={notesPerPage}
             />
           )}

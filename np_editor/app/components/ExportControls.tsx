@@ -2,28 +2,43 @@
 "use client";
 
 import { useState } from "react";
-import { FileImage, Printer, File, Copy } from "lucide-react";
+import { Download, FileImage, Printer, File, Copy } from "lucide-react";
 import { PromissoryNote } from "@/lib/default-note";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import PDFExporter from "@/lib/pdfExporter";
+import PNGExporter from "@/lib/pngExporter";
 
 interface ExportControlsProps {
   note: PromissoryNote;
   generatedNotes: PromissoryNote[];
-  printMultiple: boolean;
-  notesPerPage: number;
-  savePaper: boolean;
+  savePaper: boolean; // Removido printMultiple
 }
 
 export default function ExportControls({
   note,
   generatedNotes,
-  printMultiple,
-  notesPerPage,
   savePaper,
 }: ExportControlsProps) {
   const [isExporting, setIsExporting] = useState(false);
 
+  // Calcular automaticamente notas por página baseado nas regras
+  const calculateNotesPerPage = () => {
+    const totalNotes = generatedNotes.length > 0 ? generatedNotes.length : 1;
+
+    if (savePaper) {
+      // Modo economizar papel: máximo 5 notas por página
+      return 5;
+    } else {
+      // Modo normal: segue as regras 1=1, 2=2, 3=3 por página
+      if (totalNotes === 1) return 1;
+      if (totalNotes === 2) return 2;
+      if (totalNotes >= 3) return 3; // 3 ou mais = 3 por página
+      return 1;
+    }
+  };
+
+  const notesPerPage = calculateNotesPerPage();
+
+  // Formatters que podem ser compartilhados com as classes utilitárias
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -54,7 +69,6 @@ export default function ExportControls({
     }
   };
 
-  // Função para formatar data com dia, mês e ano por extenso
   const formatFullDate = (dateString: string) => {
     try {
       const [year, month, day] = dateString.split("-");
@@ -81,7 +95,6 @@ export default function ExportControls({
     }
   };
 
-  // Função para converter ano em palavras
   const convertYearToWords = (year: number): string => {
     if (year < 1000 || year > 9999) return year.toString();
 
@@ -171,7 +184,6 @@ export default function ExportControls({
     return result;
   };
 
-  // Função para formatar data no formato DD/MM/YYYY
   const formatDateDDMMYYYY = (dateString: string) => {
     try {
       const [year, month, day] = dateString.split("-");
@@ -181,421 +193,24 @@ export default function ExportControls({
     }
   };
 
-  // Função para criar HTML de uma única nota (com dimensões fixas)
-  const createNoteHTML = (
-    note: PromissoryNote,
-    smallSize = false,
-    isPageContent = false,
-  ) => {
-    // DIMENSÕES AJUSTÁVEIS: padrão 150x100mm, reduzido 140x93mm para economizar papel
-    let noteWidth = 150; // mm
-    let noteHeight = 100; // mm
-
-    // Se estamos em modo de economizar papel E é para múltiplas notas
-    if (savePaper && printMultiple && notesPerPage > 1) {
-      // Reduzir para encaixar 3 na horizontal e 2 na vertical
-      noteWidth = 140; // mm (reduzido de 150)
-      noteHeight = 93; // mm (reduzido de 100)
-    }
-
-    // Fontes ajustadas para o tamanho
-    const fontSizeTitle = smallSize ? "5mm" : "6mm";
-    const fontSizeValue = smallSize ? "3.5mm" : "4mm";
-    const fontSizeBody = smallSize ? "2.8mm" : "3.2mm";
-
-    // Ajustar ainda mais as fontes se estiver em modo economizar papel
-    const adjustedFontSizeBody =
-      savePaper && printMultiple && notesPerPage > 1 ? "2.6mm" : fontSizeBody;
-    const adjustedFontSizeTitle =
-      savePaper && printMultiple && notesPerPage > 1 ? "4.5mm" : fontSizeTitle;
-
-    return `
-    <div class="note-container ${isPageContent ? "page-note" : ""}" style="
-      width: ${noteWidth}mm;
-      height: ${noteHeight}mm;
-      background-color: white;
-      padding: 0 3mm 0 3mm;
-      box-sizing: border-box;
-      font-family: Arial, Helvetica, sans-serif;
-      border: 1px solid #eee;
-      page-break-inside: avoid;
-      position: relative;
-    ">
-        <div style="
-          width: 100%;
-          box-sizing: border-box;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-        ">
-          <!-- 1. Título Principal -->
-          <div style="
-            text-align: center; 
-            margin: 0;
-          ">
-            <h1 style="
-              font-size: ${fontSizeTitle}; 
-              font-weight: bold; 
-              margin: 0;
-              text-transform: uppercase;
-              line-height: 2;
-              text-decoration: underline black;
-            ">
-              NOTA PROMISSÓRIA
-            </h1>
-          </div>
-          
-          <!-- 2 e 3. Número da Nota e Vencimento -->
-          <div style="
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin: 0;
-            padding: 0;
-            line-height: 1.2;
-          ">
-            <!-- Nº da Nota -->
-            <div style="transform: translateY(-1.5mm);">
-              <span style="font-weight: bold; font-size: ${fontSizeBody};">Nº:</span>
-              <span style="margin-left: 1mm; font-size: ${fontSizeBody};">${note.number}</span>
-            </div>
-
-            <!-- Vencimento e Valor -->
-            <div style="text-align: right;">
-              <div style="margin: 0;">
-                <span style="font-weight: bold; font-size: ${fontSizeBody};">Vencimento:</span>
-                <span style="margin-left: 1mm; font-size: ${fontSizeBody};">${formatDateDDMMYYYY(note.dueDate)}</span>
-              </div>
-              <div style="margin-top: 0.5mm;">
-                <span style="
-                  font-weight: bold;
-                  font-size: ${fontSizeValue};
-                  display: inline-block;
-                ">
-                  Valor: ${formatCurrency(note.amount)}
-                </span>
-              </div>
-            </div>
-          </div>
-          
-          <!-- 4. Corpo do Texto -->
-          <div style="
-            margin-bottom: 5mm;
-          ">
-            <p style="
-              text-align: justify;
-              line-height: 1.6;
-              margin: 0;
-              font-size: ${fontSizeBody};
-            ">
-              ${formatFullDate(note.dueDate)}, pagarei por esta nota promissória à ${note.beneficiaryName}, CNPJ n° ${note.beneficiaryCNPJ}, ou à sua ordem, a quantia de <strong>${note.formattedAmount}</strong>, em moeda corrente nacional.
-            </p>
-            
-            <!-- 6. Local de Pagamento -->
-            <p style="
-              text-align: left;
-              line-height: 1.6;
-              font-size: ${fontSizeBody};
-              margin: 0;
-            ">
-              Pagável em ${note.paymentLocation}.
-            </p>
-          </div>
-
-          <!-- 7. Seção EMITENTE -->
-          <div style="
-            margin-bottom: 4mm;
-            flex-shrink: 0;
-          ">
-            <h2 style="
-              font-weight: bold;
-              font-size: ${fontSizeBody};
-              text-transform: uppercase;
-              line-height: 1.3;
-              margin: 0;
-            ">
-              EMITENTE
-            </h2>
-            
-            <div style="
-              line-height: 1.8;
-              font-size: ${fontSizeBody};
-            ">
-              <!-- Nome -->
-              <span style="font-weight: bold; display: inline-block; font-size: ${fontSizeBody};">Nome:</span>
-              <span style="font-size: ${fontSizeBody};">${note.emitterName}</span>
-              <!-- CPF -->
-              <div>
-                <span style="font-weight: bold; display: inline-block; font-size: ${fontSizeBody};">CPF:</span>
-                <span style="font-size: ${fontSizeBody};">${note.emitterCPF}</span>
-              </div>
-              
-              <!-- Endereço -->
-              <div>
-                <span style="font-weight: bold; display: inline-block; vertical-align: top; font-size: ${fontSizeBody};">Endereço:</span>
-                <span style="font-size: ${fontSizeBody};">${note.emitterAddress}</span>
-              </div>
-            </div>
-          </div>
-    
-          <!-- 8. Local e Data -->
-          <div style="
-            text-align: left;
-            flex-shrink: 0;
-            margin-bottom: 15mm;
-            font-size: ${fontSizeBody};
-          ">
-            <p style="margin: 0;">
-              ${note.city}, ${formatDate(note.issueDate)}.
-            </p>
-          </div>
-          
-          <!-- Espaço para assinatura -->
-          <div style="
-            flex-shrink: 0;
-            bottom: 10mm;
-            left: 0;
-            right: 0;
-          ">
-            <div style="
-              width: 70%;
-              height: 1px;
-              background-color: #000;
-            "></div>
-            <p style="
-              margin: 0 0 0 15mm;
-              font-weight: bold;
-              font-size: ${fontSizeBody};
-              text-transform: uppercase;
-              line-height: 1.3;
-            ">
-              ${note.emitterName.toUpperCase()}
-            </p>
-          </div>
-        </div>
-      </div>
-    `;
-  };
-
-  // Função para criar HTML de uma página com múltiplas notas
-  const createPageHTML = (notes: PromissoryNote[], pageIndex: number) => {
-    const smallSize = notesPerPage > 1;
-
-    // Calcular dimensões das notas
-    let noteWidth = 150; // mm padrão
-    let noteHeight = 100; // mm padrão
-
-    if (savePaper && printMultiple && notesPerPage > 1) {
-      noteWidth = 140; // mm reduzido
-      noteHeight = 93; // mm reduzido
-    }
-
-    // Calcular quantas notas cabem por linha
-    const maxWidth = 210; // largura A4 em mm
-    const notesPerRow = Math.floor(maxWidth / noteWidth);
-
-    // Para economizar papel, sempre 3 na horizontal e 2 na vertical
-    let actualNotesPerRow = notesPerRow;
-    let rowsPerPage = Math.ceil(notesPerPage / notesPerRow);
-
-    if (savePaper && printMultiple && notesPerPage > 1) {
-      // Forçar 3 na horizontal quando em modo economizar papel
-      actualNotesPerRow = 3;
-      rowsPerPage = Math.ceil(notesPerPage / 3);
-    }
-
-    // Altura da página A4
-    const pageHeight = 297; // mm
-    const maxRows = Math.floor(pageHeight / noteHeight);
-
-    // Limitar rows se necessário
-    if (rowsPerPage > maxRows) {
-      rowsPerPage = maxRows;
-    }
-
-    let html = `
-    <div class="page-container" id="page-${pageIndex}" style="
-      width: 210mm;
-      min-height: 297mm;
-      background-color: white;
-      box-sizing: border-box;
-      font-family: Arial, Helvetica, sans-serif;
-      padding: 0;
-      page-break-after: always;
-      display: grid;
-      grid-template-columns: repeat(${actualNotesPerRow}, ${noteWidth}mm);
-      grid-auto-rows: ${noteHeight}mm;
-      gap: 0;
-      align-content: start;
-    ">
-  `;
-
-    notes.forEach((note, index) => {
-      html += createNoteHTML(note, smallSize, true);
-    });
-
-    html += "</div>";
-    return html;
-  };
-  // Criar HTML para múltiplas notas com paginação
-  const createMultipleNotesHTML = (notes: PromissoryNote[]) => {
-    if (!printMultiple) {
-      // UMA NOTA POR PÁGINA - MAS TODAS AS NOTAS DEVEM SER INCLUÍDAS
-      let html = `
-        <div id="export-notes-container" style="
-          width: 210mm;
-          background-color: white;
-          box-sizing: border-box;
-          font-family: Arial, Helvetica, sans-serif;
-          padding: 0;
-        ">
-      `;
-
-      notes.forEach((note, index) => {
-        if (index > 0) html += '<div style="page-break-before: always;"></div>';
-        // Para cada nota, criar uma página com a nota centralizada
-        html += `
-          <div style="
-            width: 210mm;
-            min-height: 297mm;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            page-break-after: always;
-          ">
-        `;
-        html += createNoteHTML(note, false, false);
-        html += "</div>";
-      });
-
-      html += "</div>";
-      return html;
-    } else {
-      // Múltiplas notas por página
-      let html = `
-        <div id="export-notes-container" style="
-          width: 210mm;
-          background-color: white;
-          box-sizing: border-box;
-          font-family: Arial, Helvetica, sans-serif;
-          padding: 0;
-        ">
-      `;
-
-      // Dividir notas em páginas
-      const pages = [];
-      for (let i = 0; i < notes.length; i += notesPerPage) {
-        pages.push(notes.slice(i, i + notesPerPage));
-      }
-
-      pages.forEach((pageNotes, pageIndex) => {
-        if (pageIndex > 0) {
-          html += '<div style="page-break-before: always;"></div>';
-        }
-        html += createPageHTML(pageNotes, pageIndex);
-      });
-
-      html += "</div>";
-      return html;
-    }
-  };
-
-  const createTempElement = (html: string) => {
-    const tempDiv = document.createElement("div");
-    tempDiv.style.position = "fixed";
-    tempDiv.style.left = "0";
-    tempDiv.style.top = "0";
-    tempDiv.style.width = "210mm";
-    tempDiv.style.zIndex = "9999";
-    tempDiv.style.opacity = "0";
-    tempDiv.innerHTML = html;
-    document.body.appendChild(tempDiv);
-    return tempDiv;
-  };
-
+  // Handlers para exportação
   const exportAsPDF = async () => {
     setIsExporting(true);
     try {
-      const notesToExport = generatedNotes.length > 0 ? generatedNotes : [note];
-      const html = createMultipleNotesHTML(notesToExport); // SEMPRE usar todas as notas
-
-      const tempElement = createTempElement(html);
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      const container = tempElement.querySelector(
-        "#export-notes-container",
-      ) as HTMLElement;
-      if (!container) throw new Error("Container não encontrado");
-
-      // Criar PDF com múltiplas páginas
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-        compress: true,
+      const pdfExporter = new PDFExporter({
+        formatCurrency,
+        formatDate,
+        formatFullDate,
+        convertYearToWords,
+        formatDateDDMMYYYY,
       });
 
-      if (!printMultiple) {
-        // Modo uma nota por página
-        const pageDivs = container.querySelectorAll(
-          'div[style*="page-break-after: always"]',
-        );
-
-        for (let i = 0; i < pageDivs.length; i++) {
-          if (i > 0) {
-            pdf.addPage();
-          }
-
-          const canvas = await html2canvas(pageDivs[i] as HTMLElement, {
-            useCORS: true,
-            logging: false,
-            width: (pageDivs[i] as HTMLElement).offsetWidth,
-            height: (pageDivs[i] as HTMLElement).offsetHeight,
-          });
-
-          const imgData = canvas.toDataURL("image/png", 1.0);
-
-          const pageWidth = pdf.internal.pageSize.getWidth();
-          const pageHeight = pdf.internal.pageSize.getHeight();
-
-          const imgWidth = pageWidth;
-          const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-          pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight, "", "FAST");
-        }
-      } else {
-        // Modo múltiplo: várias notas por página
-        const pageContainers = container.querySelectorAll(".page-container");
-
-        for (let i = 0; i < pageContainers.length; i++) {
-          if (i > 0) {
-            pdf.addPage();
-          }
-
-          const canvas = await html2canvas(pageContainers[i] as HTMLElement, {
-            useCORS: true,
-            logging: false,
-            width: (pageContainers[i] as HTMLElement).offsetWidth,
-            height: (pageContainers[i] as HTMLElement).offsetHeight,
-          });
-
-          const imgData = canvas.toDataURL("image/png", 1.0);
-
-          const pageWidth = pdf.internal.pageSize.getWidth();
-          const pageHeight = pdf.internal.pageSize.getHeight();
-
-          // Ajustar para caber na página A4
-          const imgWidth = pageWidth;
-          const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-          pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight, "", "FAST");
-        }
-      }
-
-      document.body.removeChild(tempElement);
-      pdf.save(
-        `notas-promissorias-${new Date().toISOString().split("T")[0]}.pdf`,
-      );
+      await pdfExporter.export({
+        note,
+        generatedNotes,
+        notesPerPage,
+        savePaper,
+      });
     } catch (error) {
       console.error("Erro ao exportar PDF:", error);
       alert("Erro ao exportar PDF. Tente novamente.");
@@ -607,55 +222,20 @@ export default function ExportControls({
   const exportAsImage = async () => {
     setIsExporting(true);
     try {
-      const notesToExport = generatedNotes.length > 0 ? generatedNotes : [note];
-      const html = createMultipleNotesHTML(notesToExport); // SEMPRE usar todas as notas
+      const pngExporter = new PNGExporter({
+        formatCurrency,
+        formatDate,
+        formatFullDate,
+        convertYearToWords,
+        formatDateDDMMYYYY,
+      });
 
-      const tempElement = createTempElement(html);
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      if (!printMultiple) {
-        // Exportar cada página separadamente
-        const pageDivs = tempElement.querySelectorAll(
-          'div[style*="page-break-after: always"]',
-        );
-
-        for (let i = 0; i < pageDivs.length; i++) {
-          const canvas = await html2canvas(pageDivs[i] as HTMLElement, {
-            useCORS: true,
-            logging: false,
-            width: (pageDivs[i] as HTMLElement).offsetWidth,
-            height: (pageDivs[i] as HTMLElement).offsetHeight,
-          });
-
-          const link = document.createElement("a");
-          link.download = `nota-promissoria-${i + 1}-${new Date().toISOString().split("T")[0]}.png`;
-          link.href = canvas.toDataURL("image/png", 1.0);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }
-      } else {
-        // Exportar múltiplas notas como uma imagem por página
-        const pageContainers = tempElement.querySelectorAll(".page-container");
-
-        for (let i = 0; i < pageContainers.length; i++) {
-          const canvas = await html2canvas(pageContainers[i] as HTMLElement, {
-            useCORS: true,
-            logging: false,
-            width: (pageContainers[i] as HTMLElement).offsetWidth,
-            height: (pageContainers[i] as HTMLElement).offsetHeight,
-          });
-
-          const link = document.createElement("a");
-          link.download = `notas-promissorias-pagina-${i + 1}-${new Date().toISOString().split("T")[0]}.png`;
-          link.href = canvas.toDataURL("image/png", 1.0);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }
-      }
-
-      document.body.removeChild(tempElement);
+      await pngExporter.export({
+        note,
+        generatedNotes,
+        notesPerPage,
+        savePaper,
+      });
     } catch (error) {
       console.error("Erro ao exportar imagem:", error);
       alert("Erro ao exportar imagem. Tente novamente.");
@@ -664,80 +244,10 @@ export default function ExportControls({
     }
   };
 
-  const printNote = () => {
-    try {
-      const notesToExport = generatedNotes.length > 0 ? generatedNotes : [note];
-      const html = createMultipleNotesHTML(notesToExport); // SEMPRE usar todas as notas
-
-      const printWindow = window.open("", "_blank");
-      if (!printWindow) {
-        alert("Por favor, permita pop-ups para impressão.");
-        return;
-      }
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Nota${notesToExport.length > 1 ? "s" : ""} Promissória${notesToExport.length > 1 ? "s" : ""}</title>
-            <meta charset="UTF-8">
-            <style>
-              body { 
-                margin: 0; 
-                padding: 0;
-                font-family: Arial, Helvetica, sans-serif;
-                background-color: white;
-              }
-              @media print {
-                body { 
-                  -webkit-print-color-adjust: exact !important;
-                  print-color-adjust: exact !important;
-                }
-                @page {
-                  size: A4;
-                  margin: 0 !important;
-                }
-                .note-container {
-                  box-shadow: none !important;
-                  border: 1px solid #000 !important;
-                }
-                #export-notes-container {
-                  padding: 0 !important;
-                }
-                .page-container {
-                  min-height: 297mm !important;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            ${html}
-            <script>
-              window.onload = function() {
-                setTimeout(function() {
-                  window.print();
-                  setTimeout(function() {
-                    window.close();
-                  }, 500);
-                }, 100);
-              }
-            </script>
-          </body>
-        </html>
-      `);
-
-      printWindow.document.close();
-    } catch (error) {
-      console.error("Erro ao imprimir:", error);
-      alert("Erro ao imprimir. Tente novamente.");
-    }
-  };
-
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-gray-800">
-        Exportar Documento {""}{" "}
-        <span className="text-red-600">(ARQUIVO PDF ESTÁVEL)</span>
+        Exportar Documento
       </h3>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -759,16 +269,6 @@ export default function ExportControls({
         >
           <FileImage className="w-6 h-6 mb-2" />
           <span className="text-sm">Imagem</span>
-        </button>
-
-        <button
-          onClick={printNote}
-          disabled={isExporting}
-          className="flex flex-col items-center justify-center p-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition disabled:opacity-50"
-          title="Imprimir documento"
-        >
-          <Printer className="w-6 h-6 mb-2" />
-          <span className="text-sm">Imprimir</span>
         </button>
 
         {generatedNotes.length > 1 && (
@@ -799,17 +299,131 @@ export default function ExportControls({
       <div className="text-xs text-gray-500 pt-2 border-t border-gray-200">
         <p className="text-center">
           {generatedNotes.length > 1
-            ? `Gerando ${generatedNotes.length} nota(s)${
-                printMultiple
-                  ? ` em ${Math.ceil(generatedNotes.length / notesPerPage)} página(s)`
-                  : ""
-              } - ${
-                savePaper && printMultiple && notesPerPage > 1
-                  ? "Dimensões reduzidas: 140mm x 93mm (até 5 notas/página)"
-                  : "Dimensões padrão: 150mm x 100mm"
+            ? `Gerando ${generatedNotes.length} nota(s) em ${Math.ceil(generatedNotes.length / notesPerPage)} página(s) - ${
+                savePaper
+                  ? "Layout economizar papel: 120mm x 90mm (até 5 notas/página)"
+                  : "Layout padrão: 150mm x 100mm (1-3 notas/página conforme quantidade)"
               }`
             : "Dimensões padrão: 150mm de largura x 100mm de altura"}
         </p>
+      </div>
+      {/* Informações adicionais sobre exportação */}
+      <div className="text-xs text-gray-600 pt-4 border-t border-gray-200 mt-4">
+        <div className="space-y-3">
+          <div className="flex items-start gap-2">
+            <div className="mt-0.5">
+              <svg
+                className="w-3.5 h-3.5 text-blue-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <span className="font-semibold text-gray-700">
+                Permissões do navegador:
+              </span>
+              <p className="text-gray-600 mt-0.5">
+                Certifique-se de que seu navegador permite downloads
+                automáticos. Alguns navegadores podem solicitar permissão antes
+                de baixar.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <div className="mt-0.5">
+              <svg
+                className="w-3.5 h-3.5 text-blue-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <span className="font-semibold text-gray-700">
+                Exportação como IMAGEM (PNG):
+              </span>
+              <p className="text-gray-600 mt-0.5">
+                As imagens são compactadas em um arquivo{" "}
+                <code className="px-1 py-0.5 bg-gray-100 rounded text-gray-800 font-mono">
+                  .ZIP
+                </code>
+                . Você precisará de um software como WinRAR, 7-Zip ou o próprio
+                Windows Explorer para extrair os arquivos.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <div className="mt-0.5">
+              <svg
+                className="w-3.5 h-3.5 text-blue-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.2 6.5 10.266a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <span className="font-semibold text-gray-700">
+                Melhores resultados de impressão:
+              </span>
+              <ul className="list-disc list-inside text-gray-600 mt-0.5 ml-1 space-y-1">
+                <li>
+                  Utilize papel <strong>tamanho A4</strong> (210mm × 297mm)
+                </li>
+                <li>
+                  Configure a impressora para{" "}
+                  <strong>&quot;Sem margens&quot;</strong>
+                </li>
+                <li>
+                  Use qualidade de impressão <strong>normal ou alta</strong>{" "}
+                  para melhor definição
+                </li>
+                <li>Verifique a pré-visualização antes de imprimir</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2 bg-blue-50 p-3 rounded-lg border border-blue-100">
+            <div className="mt-0.5">
+              <svg
+                className="w-3.5 h-3.5 text-blue-600"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <span className="font-semibold text-blue-700">Dica rápida:</span>
+              <p className="text-blue-600 mt-0.5">
+                Para economizar papel, ative a opção{" "}
+                <strong>&quot;Economizar papel&quot;</strong> que organiza
+                múltiplas notas por página, otimizando o espaço disponível.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
