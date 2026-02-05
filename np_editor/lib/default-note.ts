@@ -298,64 +298,6 @@ export function formatNumberToWords(value: number): string {
   return finalResult.toUpperCase();
 }
 
-// Testes
-console.log("1000000:", formatNumberToWords(1000000));
-// UM MILHÃO DE REAIS ✓
-
-console.log("1000001:", formatNumberToWords(1000001));
-// UM MILHÃO E UM REAIS ✓
-
-console.log("2000000:", formatNumberToWords(2000000));
-// DOIS MILHÕES DE REAIS ✓
-
-console.log("2000001:", formatNumberToWords(2000001));
-// DOIS MILHÕES E UM REAIS ✓
-
-console.log("1001000:", formatNumberToWords(1001000));
-// UM MILHÃO E MIL REAIS ✓
-
-console.log("1001100:", formatNumberToWords(1001100));
-// UM MILHÃO MIL E CEM REAIS ✓
-
-console.log("9999999.99:", formatNumberToWords(9999999.99));
-// NOVE MILHÕES NOVECENTOS E NOVENTA E NOVE MIL NOVECENTOS E NOVENTA E NOVE REAIS E NOVENTA E NOVE CENTAVOS ✓
-
-console.log("1200:", formatNumberToWords(1200));
-// MIL E DUZENTOS REAIS ✓
-
-console.log("0.50:", formatNumberToWords(0.5));
-// CINQUENTA CENTAVOS DE REAIS ✓
-
-console.log("1500000:", formatNumberToWords(1500000));
-// UM MILHÃO E QUINHENTOS MIL DE REAIS
-// Na verdade, aqui também deveria ser "UM MILHÃO E QUINHENTOS MIL DE REAIS"
-// Vou ajustar na lógica...
-
-// Testes
-console.log("9999999.99:", formatNumberToWords(9999999.99));
-// NOVE MILHÕES NOVECENTOS E NOVENTA E NOVE MIL NOVECENTOS E NOVENTA E NOVE REAIS E NOVENTA E NOVE CENTAVOS
-
-console.log("1200:", formatNumberToWords(1200));
-// MIL E DUZENTOS REAIS
-
-console.log("20345:", formatNumberToWords(20345));
-// VINTE MIL TREZENTOS E QUARENTA E CINCO REAIS
-
-console.log("1000000:", formatNumberToWords(1000000));
-// UM MILHÃO DE REAIS
-
-console.log("1000001:", formatNumberToWords(1000001));
-// UM MILHÃO E UM REAIS
-
-console.log("0.50:", formatNumberToWords(0.5));
-// CINQUENTA CENTAVOS DE REAIS
-
-console.log("0.01:", formatNumberToWords(0.01));
-// UM CENTAVO DE REAL
-
-console.log("1.01:", formatNumberToWords(1.01));
-// UM REAL E UM CENTAVO
-
 // Função para calcular datas das parcelas
 export function calculateInstallmentDates(
   startDate: string,
