@@ -467,7 +467,7 @@ export default function NotePreviewMb({
           />
           {/* Conteúdo da página */}
           <div
-            className="page-container border border-gray-300 shadow-lg bg-white mx-auto"
+            className="page-container border border-gray-300 shadow-lg bg-white mx-auto mt-20"
             style={{
               transform: `scale(${
                 window.innerWidth < 480
