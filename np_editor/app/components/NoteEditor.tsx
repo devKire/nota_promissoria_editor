@@ -136,7 +136,13 @@ export default function NoteEditor() {
 
   const handleInstallmentsChange = (count: number) => {
     if (hasGeneratedNotes) return; // Não permitir edição após gerar notas
+
     setInstallments(count);
+
+    // Se estiver reduzindo para 3 ou menos parcelas, desativar savePaper
+    if (count <= 3 && savePaper) {
+      setSavePaper(false);
+    }
   };
 
   const generateInstallments = () => {
@@ -535,12 +541,13 @@ export default function NoteEditor() {
 
             {/* Configurações de Impressão */}
             {showSavePaperOption && (
-              <div className="flex items-start justify-between p-4 border rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors duration-200 mb-4">
-                <div className="flex-1 pr-4">
-                  <label className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+              <div className="p-4 border rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors duration-200 mb-4">
+                {/* Cabeçalho com toggle */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 text-green-600"
+                      className="h-5 w-5 text-green-600"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -552,37 +559,98 @@ export default function NoteEditor() {
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
-                    Economizar papel ao imprimir várias notas
+                    <label className="text-sm font-semibold text-gray-800 cursor-pointer">
+                      Economizar papel ao imprimir várias notas
+                    </label>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={savePaper}
+                      onChange={(e) => setSavePaper(e.target.checked)}
+                      disabled={hasGeneratedNotes}
+                      className="sr-only peer"
+                    />
+                    <div
+                      className="w-11 h-6 bg-gray-300 peer-checked:bg-green-500 rounded-full peer transition-colors duration-300
+            after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 
+            after:border after:rounded-full after:h-5 after:w-5 after:transition-all
+            peer-checked:after:translate-x-5 peer-checked:after:border-white"
+                    ></div>
                   </label>
-                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                    Permite imprimir{" "}
-                    <span className="font-medium text-gray-800">
-                      até 5 notas por página
-                    </span>
-                    .
-                    <br />
-                    <span className="text-gray-500">
-                      Normalmente são impressas 1–3 notas (99mm x 150mm). Com
-                      este modo ativado, o layout reduz para 90mm x 120mm,
-                      otimizando o uso do papel.
-                    </span>
-                  </p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={savePaper}
-                    onChange={(e) => setSavePaper(e.target.checked)}
-                    disabled={hasGeneratedNotes}
-                    className="sr-only peer"
-                  />
-                  <div
-                    className="w-10 h-5 bg-gray-300 peer-checked:bg-green-500 rounded-full peer transition-colors duration-300
-      after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 
-      after:border after:rounded-full after:h-4 after:w-4 after:transition-all
-      peer-checked:after:translate-x-5 peer-checked:after:border-white"
-                  ></div>
-                </label>
+
+                {/* Descrição */}
+                <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                  Permite imprimir{" "}
+                  <span className="font-medium text-gray-800">
+                    até 5 notas por página
+                  </span>
+                  .
+                  <br />
+                  <span className="text-gray-500">
+                    Normalmente são impressas 1–3 notas (9 cm x 15 cm). Com este
+                    modo ativado, o layout pode ser reduzido até 9 cm x 12 cm,
+                    otimizando o uso do papel.
+                  </span>
+                </p>
+
+                {/* Opções de layout (só mostra quando savePaper está ativo) */}
+                {savePaper && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-xs font-medium text-gray-700 mb-2">
+                      Escolha o layout:
+                    </p>
+                    <div className="space-y-2">
+                      <label className="flex items-center text-xs text-red-600 cursor-pointer hover:text-red-800 transition-colors">
+                        <input
+                          type="radio"
+                          name="layout"
+                          value="savePaper"
+                          checked={savePaper}
+                          onChange={() => setSavePaper(true)}
+                          disabled
+                        />
+                        <span>
+                          <span className="font-medium">
+                            4 notas por página
+                          </span>{" "}
+                          - Layout otimizado (10,5 cm x 14,85 cm)
+                          <span className="font-bold ml-5">
+                            ⚠️Em desenvolvimento⚠️
+                          </span>
+                        </span>
+                      </label>
+
+                      <label className="flex items-center text-xs text-gray-600 cursor-pointer hover:text-gray-800 transition-colors">
+                        <input
+                          type="radio"
+                          name="layout"
+                          value="savePaper"
+                          checked={savePaper}
+                          onChange={() => setSavePaper(true)}
+                          disabled={hasGeneratedNotes}
+                        />
+                        <span>
+                          <span className="font-medium">
+                            5 notas por página
+                          </span>{" "}
+                          - Máxima economia (9 cm x 12 cm)
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Nota sobre o layout padrão (quando savePaper está desativado) */}
+                {!savePaper && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-xs text-gray-600">
+                      <span className="font-medium">Layout atual:</span> Padrão
+                      (1-3 notas por página - 15cm x 9cm)
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

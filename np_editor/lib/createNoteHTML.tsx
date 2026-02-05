@@ -74,7 +74,13 @@ export const createNoteHTML = ({
           }}
         >
           <div style={{ transform: "translateY(-1.5mm)" }}>
-            <span style={{ fontWeight: "bold", fontSize: fontSizeBody }}>
+            <span
+              style={{
+                fontWeight: "bold",
+                textShadow: savePaper ? "0 1px 1px #000" : "none",
+                fontSize: fontSizeBody,
+              }}
+            >
               Nº:
             </span>
             <span style={{ marginLeft: "1mm", fontSize: fontSizeBody }}>
@@ -84,7 +90,13 @@ export const createNoteHTML = ({
 
           <div style={{ textAlign: "right" }}>
             <div style={{ margin: 0 }}>
-              <span style={{ fontWeight: "bold", fontSize: fontSizeBody }}>
+              <span
+                style={{
+                  fontWeight: "bold",
+                  textShadow: savePaper ? "0 1px 1px #000" : "none",
+                  fontSize: fontSizeBody,
+                }}
+              >
                 Vencimento:
               </span>
               <span style={{ marginLeft: "1mm", fontSize: fontSizeBody }}>
@@ -106,7 +118,7 @@ export const createNoteHTML = ({
         </div>
 
         {/* Corpo do Texto */}
-        <div style={{ marginBottom: savePaper ? "3mm" : "5mm" }}>
+        <div style={{ marginBottom: savePaper ? "3mm" : "3mm" }}>
           <p
             style={{
               textAlign: "justify",
@@ -117,8 +129,16 @@ export const createNoteHTML = ({
           >
             {formatFullDate(note.dueDate)}, pagarei por esta nota promissória à{" "}
             {note.beneficiaryName}, CNPJ n° {note.beneficiaryCNPJ}, ou à sua
-            ordem, a quantia de <strong>{note.formattedAmount}</strong>, em
-            moeda corrente nacional.
+            ordem, a quantia de{" "}
+            <strong
+              style={{
+                fontWeight: "bold",
+                textShadow: savePaper ? "0 1px 1px #000" : "none",
+              }}
+            >
+              {note.formattedAmount}
+            </strong>
+            , em moeda corrente nacional.
           </p>
 
           <p
@@ -127,7 +147,7 @@ export const createNoteHTML = ({
               lineHeight: 1.5,
               fontSize: fontSizeBody,
               margin: 0,
-              marginTop: "2mm",
+              marginTop: savePaper ? "2mm" : "1mm",
             }}
           >
             Pagável em {note.paymentLocation}.
@@ -135,10 +155,11 @@ export const createNoteHTML = ({
         </div>
 
         {/* Emitente */}
-        <div style={{ marginBottom: "8mm", flexShrink: 0 }}>
+        <div style={{ marginBottom: savePaper ? "8mm" : "5mm", flexShrink: 0 }}>
           <h2
             style={{
               fontWeight: "bold",
+              textShadow: savePaper ? "0 1px 1px #000" : "none",
               fontSize: fontSizeBody,
               textTransform: "uppercase",
               lineHeight: 1.3,
@@ -149,12 +170,24 @@ export const createNoteHTML = ({
           </h2>
 
           <div style={{ lineHeight: 1.6, fontSize: fontSizeBody }}>
-            <span style={{ fontWeight: "bold", fontSize: fontSizeBody }}>
+            <span
+              style={{
+                fontWeight: "bold",
+                textShadow: savePaper ? "0 1px 1px #000" : "none",
+                fontSize: fontSizeBody,
+              }}
+            >
               Nome:
             </span>
             <span style={{ fontSize: fontSizeBody }}>{note.emitterName}</span>
             <div>
-              <span style={{ fontWeight: "bold", fontSize: fontSizeBody }}>
+              <span
+                style={{
+                  fontWeight: "bold",
+                  textShadow: savePaper ? "0 1px 1px #000" : "none",
+                  fontSize: fontSizeBody,
+                }}
+              >
                 CPF:
               </span>
               <span style={{ fontSize: fontSizeBody }}>{note.emitterCPF}</span>
@@ -163,6 +196,7 @@ export const createNoteHTML = ({
               <span
                 style={{
                   fontWeight: "bold",
+                  textShadow: savePaper ? "0 1px 1px #000" : "none",
                   display: "inline-block",
                   verticalAlign: "top",
                   fontSize: fontSizeBody,
@@ -196,7 +230,7 @@ export const createNoteHTML = ({
           style={{
             flexShrink: 0,
             position: "absolute",
-            bottom: "2mm",
+            bottom: savePaper ? "3mm" : "2mm",
             left: 0,
             right: 0,
           }}
@@ -213,6 +247,7 @@ export const createNoteHTML = ({
             style={{
               margin: "0 0 0 15mm",
               fontWeight: "bold",
+              textShadow: savePaper ? "0 1px 1px #000" : "none",
               fontSize: fontSizeBody,
               textTransform: "uppercase",
               lineHeight: 1.3,
