@@ -16,7 +16,7 @@ interface ExportOptions {
   note: PromissoryNote;
   generatedNotes: PromissoryNote[];
   notesPerPage: number;
-  savePaper: boolean;
+  selectedLayout: 4 | 5 | "default"; // Adicionado para consistência com PDFExporter
 }
 
 export default class PNGExporter {
@@ -31,29 +31,24 @@ export default class PNGExporter {
     rotated = false,
     options: ExportOptions,
   ) {
-    const { savePaper } = options;
+    const { selectedLayout } = options;
 
-    // Dimensões fixas para modo savePaper (exatamente igual ao PDFExporter)
-    let noteWidth = 150; // mm padrão
-    let noteHeight = 100; // mm padrão
+    let noteWidth = 150;
+    let noteHeight = 100;
 
-    if (savePaper) {
-      noteWidth = 120; // mm para modo economizar papel
-      noteHeight = 90; // mm para modo economizar papel
+    // Dimensões específicas para layout de 4 notas
+    if (selectedLayout === 4) {
+      noteWidth = 148.5;
+      noteHeight = 105;
+    } else if (selectedLayout === 5) {
+      noteWidth = 120;
+      noteHeight = 90;
     }
-
-    // Fontes ajustadas para tamanho menor (exatamente igual ao PDFExporter)
-    const fontSizeTitle = savePaper ? "4.5mm" : "6mm";
-    const fontSizeValue = savePaper ? "3mm" : "4mm";
-    const fontSizeBody = savePaper ? "2.4mm" : "3.2mm";
 
     const noteHTML = generateNoteHTML({
       note,
-      savePaper,
+      selectedLayout: selectedLayout,
       rotated,
-      fontSizeTitle,
-      fontSizeBody,
-      fontSizeValue,
       noteWidth,
       noteHeight,
       config: this.config,
@@ -67,14 +62,99 @@ export default class PNGExporter {
     pageIndex: number,
     options: ExportOptions,
   ) {
-    const { savePaper, notesPerPage } = options;
+    const { selectedLayout, notesPerPage } = options;
 
-    // Se não for savePaper, usar layout normal (lista vertical)
-    if (!savePaper) {
-      return this.createNormalPageHTML(notes, pageIndex, options);
+    // Layout específico para 4 notas (2x2)
+    if (selectedLayout === 4) {
+      return this.create4NotesPageHTML(notes, pageIndex, options);
     }
 
-    // Layout savePaper: 120x90mm, máximo 5 notas por página (exatamente igual ao PDFExporter)
+    // Layout para 5 notas
+    if (selectedLayout === 5) {
+      return this.createSavePaperPageHTML(notes, pageIndex, options);
+    }
+
+    // Layout normal (default)
+    return this.createNormalPageHTML(notes, pageIndex, options);
+  }
+
+  private create4NotesPageHTML(
+    notes: PromissoryNote[],
+    pageIndex: number,
+    options: ExportOptions,
+  ) {
+    const { notesPerPage } = options;
+
+    // Dimensões da nota
+    const noteWidth = 148.5; // mm (largura original)
+    const noteHeight = 105; // mm (altura original)
+
+    // Quando rotacionada, as dimensões são invertidas
+    const rotatedWidth = noteHeight; // 105mm (largura quando rotacionada)
+    const rotatedHeight = noteWidth; // 148.5mm (altura quando rotacionada)
+
+    const pageWidth = 210; // mm (largura A4)
+    const pageHeight = 297; // mm (altura A4)
+
+    let html = `
+    <div class="page-container four-notes-page" id="page-${pageIndex}" style="
+      width: ${pageWidth}mm;
+      height: ${pageHeight}mm;
+      background-color: white;
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+      padding: 0;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+    ">
+  `;
+
+    // Posições para as 4 notas (todas rotacionadas 90°)
+    const positions = [
+      // Posição 1: Canto superior esquerdo
+      { top: 0, left: 0, rotated: true },
+      // Posição 2: Canto inferior esquerdo
+      { top: pageHeight - rotatedHeight, left: 0, rotated: true },
+      // Posição 3: Canto superior direito
+      { top: 0, left: pageWidth - rotatedWidth, rotated: true },
+      // Posição 4: Canto inferior direito
+      {
+        top: pageHeight - rotatedHeight,
+        left: pageWidth - rotatedWidth,
+        rotated: true,
+      },
+    ];
+
+    notes.forEach((note, index) => {
+      if (index < notesPerPage && index < 4) {
+        const pos = positions[index];
+        html += `
+        <div style="
+          position: absolute;
+          top: ${pos.top}mm;
+          left: ${pos.left}mm;
+          width: ${pos.rotated ? rotatedWidth : noteWidth}mm;
+          height: ${pos.rotated ? rotatedHeight : noteHeight}mm;
+        ">
+          ${this.createNoteHTML(note, pos.rotated, options)}
+        </div>
+      `;
+      }
+    });
+
+    html += "</div>";
+    return html;
+  }
+
+  private createSavePaperPageHTML(
+    notes: PromissoryNote[],
+    pageIndex: number,
+    options: ExportOptions,
+  ) {
+    const { notesPerPage } = options;
+
+    // Layout savePaper: 120x90mm, máximo 5 notas por página
     const noteWidth = 120; // mm
     const noteHeight = 90; // mm
     const pageWidth = 210; // mm (largura A4)
@@ -93,7 +173,7 @@ export default class PNGExporter {
     ">
   `;
 
-    // Posições fixas para as notas (modo economizar papel) - exatamente igual ao PDFExporter
+    // Posições fixas para as notas (modo economizar papel)
     const positions = [
       // Posição 1: Canto superior esquerdo (horizontal)
       { top: 0, left: 0, rotated: false },
@@ -135,13 +215,13 @@ export default class PNGExporter {
   ) {
     const { notesPerPage } = options;
 
-    // Dimensões padrão (exatamente igual ao PDFExporter)
+    // Dimensões padrão
     const noteWidth = 150; // mm
     const noteHeight = 99; // mm
     const pageWidth = 210; // mm (largura A4)
     const pageHeight = 297; // mm (altura A4)
 
-    // Alinhamento à esquerda para melhor aproveitamento do papel (igual ao PDFExporter)
+    // Alinhamento à esquerda
     const leftMargin = 0;
 
     let html = `
@@ -157,10 +237,9 @@ export default class PNGExporter {
     ">
   `;
 
-    // Calcular posição vertical para cada nota (uma abaixo da outra) - igual ao PDFExporter
+    // Calcular posição vertical para cada nota
     notes.forEach((note, index) => {
       if (index < notesPerPage) {
-        // Posição vertical: 0mm para a primeira, 100mm para a segunda, etc.
         const topPosition = index * noteHeight;
 
         html += `
@@ -185,9 +264,8 @@ export default class PNGExporter {
     notes: PromissoryNote[],
     options: ExportOptions,
   ) {
-    const { notesPerPage, savePaper } = options;
+    const { notesPerPage } = options;
 
-    // SEMPRE múltiplas notas por página (comportamento padrão) - igual ao PDFExporter
     let html = `
       <div id="export-notes-container" style="
         width: 210mm;
@@ -198,7 +276,7 @@ export default class PNGExporter {
       ">
     `;
 
-    // Dividir notas em páginas - igual ao PDFExporter
+    // Dividir notas em páginas
     const pages = [];
     for (let i = 0; i < notes.length; i += notesPerPage) {
       pages.push(notes.slice(i, i + notesPerPage));
@@ -246,15 +324,16 @@ export default class PNGExporter {
     const pageContainers = container.querySelectorAll(".page-container");
 
     for (let i = 0; i < pageContainers.length; i++) {
-      const canvas = await html2canvas(pageContainers[i] as HTMLElement, {
+      const pageContainer = pageContainers[i] as HTMLElement;
+      const canvas = await html2canvas(pageContainer, {
         useCORS: true,
         logging: false,
-        width: (pageContainers[i] as HTMLElement).offsetWidth,
-        height: (pageContainers[i] as HTMLElement).offsetHeight,
+        width: pageContainer.offsetWidth,
+        height: pageContainer.offsetHeight,
       });
 
       // Converter canvas para PNG com qualidade
-      const pngData = canvas.toDataURL("image/png", 0.9);
+      const pngData = canvas.toDataURL("image/png", 1.0);
 
       // Extrair dados base64
       const base64Data = pngData.replace(/^data:image\/(png|jpeg);base64,/, "");

@@ -1,7 +1,7 @@
 // components/NoteEditor.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import NotePreview from "./NotePreview";
 import FieldEditor from "./FieldEditor";
 import ExportControls from "./ExportControls";
@@ -16,6 +16,7 @@ import {
   calculateInstallmentDates,
 } from "@/lib/default-note";
 import NotePreviewMb from "./NotePreviewMb";
+import { se } from "date-fns/locale";
 
 export default function NoteEditor() {
   const [note, setNote] = useState<PromissoryNote>(() => {
@@ -38,7 +39,7 @@ export default function NoteEditor() {
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024); // 👈 1024px = breakpoint lg padrão do Tailwind
+      setIsMobile(window.innerWidth < 1024);
     };
 
     checkMobile();
@@ -46,26 +47,31 @@ export default function NoteEditor() {
 
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-  // Calcular automaticamente notas por página
+
+  // Estado para o layout selecionado
+  const [selectedLayout, setSelectedLayout] = useState<4 | 5 | "default">(
+    "default",
+  );
+
+  // Função para determinar qual layout usar
+  const getCurrentLayout = (): 4 | 5 | "default" => selectedLayout;
+
+  // Calcular automaticamente notas por página baseado no layout selecionado
   const calculateNotesPerPage = () => {
     const totalNotes = generatedNotes.length > 0 ? generatedNotes.length : 1;
+    const currentLayout = getCurrentLayout(); // Usar o layout atual
 
-    if (savePaper) {
-      // Modo economizar papel: máximo 5 notas por página
-      return 5;
-    } else {
-      // Modo normal: segue as regras 1=1, 2=2, 3=3 por página
-      if (totalNotes === 1) return 1;
-      if (totalNotes === 2) return 2;
-      if (totalNotes >= 3) return 3; // 3 ou mais = 3 por página
-      return 1;
-    }
+    if (currentLayout === 4) return 4; // Layout de 4 notas
+    if (currentLayout === 5) return 5; // Layout de 5 notas
+
+    // Layout padrão: segue as regras 1=1, 2=2, 3=3 por página
+    if (totalNotes === 1) return 1;
+    if (totalNotes === 2) return 2;
+    if (totalNotes >= 3) return 3; // 3 ou mais = 3 por página
+    return 1;
   };
 
   const notesPerPage = calculateNotesPerPage();
-
-  // Mostrar opção "economizar papel" apenas se houver mais de 3 notas
-  const showSavePaperOption = installments > 3 || generatedNotes.length > 3;
 
   const hasGeneratedNotes = generatedNotes.length > 0;
 
@@ -540,119 +546,103 @@ export default function NoteEditor() {
             </div>
 
             {/* Configurações de Impressão */}
-            {showSavePaperOption && (
-              <div className="p-4 border rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors duration-200 mb-4">
-                {/* Cabeçalho com toggle */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 text-green-600"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    <label className="text-sm font-semibold text-gray-800 cursor-pointer">
-                      Economizar papel ao imprimir várias notas
-                    </label>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={savePaper}
-                      onChange={(e) => setSavePaper(e.target.checked)}
-                      disabled={hasGeneratedNotes}
-                      className="sr-only peer"
+            <div className="p-4 border rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors duration-200 mb-4">
+              {/* Cabeçalho com toggle */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-green-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
                     />
-                    <div
-                      className="w-11 h-6 bg-gray-300 peer-checked:bg-green-500 rounded-full peer transition-colors duration-300
-            after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 
-            after:border after:rounded-full after:h-5 after:w-5 after:transition-all
-            peer-checked:after:translate-x-5 peer-checked:after:border-white"
-                    ></div>
+                  </svg>
+                  <label className="text-sm font-semibold text-gray-800 cursor-pointer">
+                    Selecione o layout de impressão
                   </label>
                 </div>
-
-                {/* Descrição */}
-                <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-                  Permite imprimir{" "}
-                  <span className="font-medium text-gray-800">
-                    até 5 notas por página
-                  </span>
-                  .
-                  <br />
-                  <span className="text-gray-500">
-                    Normalmente são impressas 1–3 notas (9 cm x 15 cm). Com este
-                    modo ativado, o layout pode ser reduzido até 9 cm x 12 cm,
-                    otimizando o uso do papel.
-                  </span>
-                </p>
-
-                {/* Opções de layout (só mostra quando savePaper está ativo) */}
-                {savePaper && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-xs font-medium text-gray-700 mb-2">
-                      Escolha o layout:
-                    </p>
-                    <div className="space-y-2">
-                      <label className="flex items-center text-xs text-red-600 cursor-pointer hover:text-red-800 transition-colors">
-                        <input
-                          type="radio"
-                          name="layout"
-                          value="savePaper"
-                          checked={savePaper}
-                          onChange={() => setSavePaper(true)}
-                          disabled
-                        />
-                        <span>
-                          <span className="font-medium">
-                            4 notas por página
-                          </span>{" "}
-                          - Layout otimizado (10,5 cm x 14,85 cm)
-                          <span className="font-bold ml-5">
-                            ⚠️Em desenvolvimento⚠️
-                          </span>
-                        </span>
-                      </label>
-
-                      <label className="flex items-center text-xs text-gray-600 cursor-pointer hover:text-gray-800 transition-colors">
-                        <input
-                          type="radio"
-                          name="layout"
-                          value="savePaper"
-                          checked={savePaper}
-                          onChange={() => setSavePaper(true)}
-                          disabled={hasGeneratedNotes}
-                        />
-                        <span>
-                          <span className="font-medium">
-                            5 notas por página
-                          </span>{" "}
-                          - Máxima economia (9 cm x 12 cm)
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                )}
-
-                {/* Nota sobre o layout padrão (quando savePaper está desativado) */}
-                {!savePaper && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-xs text-gray-600">
-                      <span className="font-medium">Layout atual:</span> Padrão
-                      (1-3 notas por página - 15cm x 9cm)
-                    </p>
-                  </div>
-                )}
               </div>
-            )}
+
+              {/* Descrição */}
+              <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+                Permite imprimir{" "}
+                <span className="font-medium text-gray-800">
+                  até 5 notas por página
+                </span>
+                .
+                <br />
+                <span className="text-gray-500">
+                  Normalmente são impressas 1–3 notas (9 cm x 15 cm). Com este
+                  modo ativado, o layout pode ser reduzido até 9 cm x 12 cm,
+                  otimizando o uso do papel.
+                </span>
+              </p>
+
+              {/* Opções de layout (só mostra quando savePaper está ativo) */}
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <p className="text-xs font-medium text-gray-700 mb-2">
+                  Escolha o layout:
+                </p>
+                <div className="space-y-2">
+                  <label className="flex items-center text-xs text-gray-600 cursor-pointer hover:text-gray-800 transition-colors">
+                    <input
+                      type="radio"
+                      name="layout"
+                      value="5notes"
+                      checked={selectedLayout === "default"}
+                      onChange={() => setSelectedLayout("default")}
+                      disabled={hasGeneratedNotes}
+                    />
+
+                    <span className="ml-2">
+                      <span className="font-medium">3 notas por página</span> -
+                      Layout padrão (100 mm x 150 mm)
+                    </span>
+                  </label>
+                  <label className="flex items-center text-xs text-green-600 cursor-pointer hover:text-green-800 transition-colors">
+                    <input
+                      type="radio"
+                      name="layout"
+                      value="4notes"
+                      checked={selectedLayout === 4}
+                      onChange={() => setSelectedLayout(4)}
+                      disabled={hasGeneratedNotes}
+                    />
+
+                    <span className="ml-2">
+                      <span className="font-medium">4 notas por página</span> -
+                      Layout otimizado (105 mm x 148,5 mm) com rotação de 90°
+                      <span className="ml-2 px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs font-bold">
+                        RECOMENDADO
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="flex items-center text-xs text-gray-600 cursor-pointer hover:text-gray-800 transition-colors">
+                    <input
+                      type="radio"
+                      name="layout"
+                      value="5notes"
+                      checked={selectedLayout === 5}
+                      onChange={() => setSelectedLayout(5)}
+                      disabled={hasGeneratedNotes}
+                    />
+
+                    <span className="ml-2">
+                      <span className="font-medium">5 notas por página</span> -
+                      Layout ecônomico (90 mm x 120 mm)
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Controles de Parcelamento */}
@@ -697,7 +687,7 @@ export default function NoteEditor() {
               generatedNotes={
                 generatedNotes.length > 0 ? generatedNotes : [note]
               }
-              savePaper={savePaper}
+              selectedLayout={getCurrentLayout()}
             />
           </div>
         </div>
@@ -746,7 +736,7 @@ export default function NoteEditor() {
               formatDate={formatDate}
               formatFullDate={formatFullDate}
               formatDateDDMMYYYY={formatDateDDMMYYYY}
-              savePaper={savePaper}
+              selectedLayout={selectedLayout}
               notesPerPage={notesPerPage}
             />
           ) : (
@@ -756,7 +746,7 @@ export default function NoteEditor() {
               formatDate={formatDate}
               formatFullDate={formatFullDate}
               formatDateDDMMYYYY={formatDateDDMMYYYY}
-              savePaper={savePaper}
+              selectedLayout={selectedLayout}
               notesPerPage={notesPerPage}
             />
           )}

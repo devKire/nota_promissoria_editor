@@ -16,7 +16,7 @@ interface ExportOptions {
   note: PromissoryNote;
   generatedNotes: PromissoryNote[];
   notesPerPage: number;
-  savePaper: boolean;
+  selectedLayout: 4 | 5 | "default";
 }
 
 export default class PDFExporter {
@@ -31,29 +31,31 @@ export default class PDFExporter {
     rotated = false,
     options: ExportOptions,
   ) {
-    const { savePaper } = options;
+    const { selectedLayout } = options;
 
-    // Dimensões fixas para modo savePaper
-    let noteWidth = 150; // mm padrão
-    let noteHeight = 100; // mm padrão
+    let noteWidth = 150;
+    let noteHeight = 100;
 
-    if (savePaper) {
-      noteWidth = 120; // mm para modo economizar papel
-      noteHeight = 90; // mm para modo economizar papel
+    // Dimensões específicas para layout de 4 notas
+    if (selectedLayout === 4) {
+      noteWidth = 148.5;
+      noteHeight = 105;
+    } else if (selectedLayout === 5) {
+      noteWidth = 120;
+      noteHeight = 90;
     }
 
-    // Fontes ajustadas para tamanho menor
-    const fontSizeTitle = savePaper ? "4.5mm" : "6mm";
-    const fontSizeValue = savePaper ? "3mm" : "4mm";
-    const fontSizeBody = savePaper ? "2.4mm" : "3.2mm";
+    console.log(
+      "createNoteHTML - selectedLayout:",
+      selectedLayout,
+      "dimensões:",
+      { noteWidth, noteHeight },
+    );
 
     const noteHTML = generateNoteHTML({
       note,
-      savePaper,
+      selectedLayout: selectedLayout,
       rotated,
-      fontSizeTitle,
-      fontSizeBody,
-      fontSizeValue,
       noteWidth,
       noteHeight,
       config: this.config,
@@ -67,12 +69,111 @@ export default class PDFExporter {
     pageIndex: number,
     options: ExportOptions,
   ) {
-    const { savePaper, notesPerPage } = options;
+    const { selectedLayout, notesPerPage } = options;
 
-    // Se não for savePaper, usar layout normal (lista vertical)
-    if (!savePaper) {
-      return this.createNormalPageHTML(notes, pageIndex, options);
+    console.log(
+      "createPageHTML - selectedLayout:",
+      selectedLayout,
+      "notesPerPage:",
+      notesPerPage,
+      "total notes:",
+      notes.length,
+    );
+
+    // Layout específico para 4 notas (2x2)
+    if (selectedLayout === 4) {
+      console.log("createPageHTML - USANDO LAYOUT 4 NOTAS (2x2)");
+      return this.create4NotesPageHTML(notes, pageIndex, options);
     }
+
+    // Layout para 5 notas
+    if (selectedLayout === 5) {
+      console.log("createPageHTML - USANDO LAYOUT ECONOMIA (5 notas)");
+      return this.createSavePaperPageHTML(notes, pageIndex, options);
+    }
+
+    console.log("createPageHTML - USANDO LAYOUT NORMAL");
+    return this.createNormalPageHTML(notes, pageIndex, options);
+  }
+
+  private create4NotesPageHTML(
+    notes: PromissoryNote[],
+    pageIndex: number,
+    options: ExportOptions,
+  ) {
+    const { notesPerPage } = options;
+
+    // Dimensões da nota
+    const noteWidth = 148.5; // mm (largura original)
+    const noteHeight = 105; // mm (altura original)
+
+    // Quando rotacionada, as dimensões são invertidas
+    const rotatedWidth = noteHeight; // 105mm (largura quando rotacionada)
+    const rotatedHeight = noteWidth; // 148.5mm (altura quando rotacionada)
+
+    const pageWidth = 210; // mm (largura A4)
+    const pageHeight = 297; // mm (altura A4)
+
+    let html = `
+    <div class="page-container four-notes-page" id="page-${pageIndex}" style="
+      width: ${pageWidth}mm;
+      height: ${pageHeight}mm;
+      background-color: white;
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+      padding: 0;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+    ">
+  `;
+
+    // Posições CORRIGIDAS para as 4 notas
+    // Todas as notas ficam na vertical (rotacionadas 90°)
+    const positions = [
+      // Posição 1: Canto superior esquerdo
+      { top: 0, left: 0, rotated: true },
+      // Posição 2: Canto inferior esquerdo
+      // Top = altura da página - altura da nota rotacionada
+      { top: pageHeight - rotatedHeight, left: 0, rotated: true },
+      // Posição 3: Canto superior direito
+      // Left = largura da página - largura da nota rotacionada
+      { top: 0, left: pageWidth - rotatedWidth, rotated: true },
+      // Posição 4: Canto inferior direito
+      {
+        top: pageHeight - rotatedHeight,
+        left: pageWidth - rotatedWidth,
+        rotated: true,
+      },
+    ];
+
+    notes.forEach((note, index) => {
+      if (index < notesPerPage && index < 4) {
+        const pos = positions[index];
+        html += `
+        <div style="
+          position: absolute;
+          top: ${pos.top}mm;
+          left: ${pos.left}mm;
+          width: ${pos.rotated ? rotatedWidth : noteWidth}mm;
+          height: ${pos.rotated ? rotatedHeight : noteHeight}mm;
+        ">
+          ${this.createNoteHTML(note, pos.rotated, options)}
+        </div>
+      `;
+      }
+    });
+
+    html += "</div>";
+    return html;
+  }
+
+  private createSavePaperPageHTML(
+    notes: PromissoryNote[],
+    pageIndex: number,
+    options: ExportOptions,
+  ) {
+    const { notesPerPage } = options;
 
     // Layout savePaper: 120x90mm, máximo 5 notas por página
     const noteWidth = 120; // mm
@@ -123,7 +224,7 @@ export default class PDFExporter {
         `;
       }
     });
-
+    console.log("createSavePaperPageHTML - HTML gerado para a página:", html);
     html += "</div>";
     return html;
   }
@@ -135,14 +236,32 @@ export default class PDFExporter {
   ) {
     const { notesPerPage } = options;
 
+    console.log(
+      "createNormalPageHTML - notesPerPage:",
+      notesPerPage,
+      "notes:",
+      notes.length,
+    );
+
     // Dimensões padrão
     const noteWidth = 150; // mm
     const noteHeight = 99; // mm
     const pageWidth = 210; // mm (largura A4)
     const pageHeight = 297; // mm (altura A4)
 
+    // Verificar se as notas cabem na página
+    const totalHeightNeeded = noteHeight * Math.min(notes.length, notesPerPage);
+    if (totalHeightNeeded > pageHeight) {
+      console.warn(
+        "ATENÇÃO: Altura total das notas excede a página:",
+        totalHeightNeeded,
+        "mm >",
+        pageHeight,
+        "mm",
+      );
+    }
+
     // CENTRALIZAR a nota horizontalmente na página
-    // const leftMargin = (pageWidth - noteWidth) / 2;
     const leftMargin = 0; // Alinhamento à esquerda para melhor aproveitamento do papel
 
     let html = `
@@ -186,9 +305,15 @@ export default class PDFExporter {
     notes: PromissoryNote[],
     options: ExportOptions,
   ) {
-    const { notesPerPage, savePaper } = options;
+    const { notesPerPage } = options;
 
-    // SEMPRE múltiplas notas por página (comportamento padrão)
+    console.log(
+      "createMultipleNotesHTML - total notes:",
+      notes.length,
+      "notesPerPage:",
+      notesPerPage,
+    );
+
     let html = `
       <div id="export-notes-container" style="
         width: 210mm;
@@ -204,6 +329,8 @@ export default class PDFExporter {
     for (let i = 0; i < notes.length; i += notesPerPage) {
       pages.push(notes.slice(i, i + notesPerPage));
     }
+
+    console.log("createMultipleNotesHTML - total pages:", pages.length);
 
     pages.forEach((pageNotes, pageIndex) => {
       if (pageIndex > 0) {
@@ -230,6 +357,12 @@ export default class PDFExporter {
   }
 
   async export(options: ExportOptions) {
+    console.log("PDFExporter.export - options:", {
+      selectedLayout: options.selectedLayout,
+      notesPerPage: options.notesPerPage,
+      totalNotes: options.generatedNotes.length || 1,
+    });
+
     const { note, generatedNotes } = options;
     const notesToExport = generatedNotes.length > 0 ? generatedNotes : [note];
     const html = this.createMultipleNotesHTML(notesToExport, options);
@@ -253,16 +386,28 @@ export default class PDFExporter {
     // Sempre modo múltiplo (comportamento padrão)
     const pageContainers = container.querySelectorAll(".page-container");
 
+    console.log(
+      "PDFExporter.export - total pageContainers:",
+      pageContainers.length,
+    );
+
     for (let i = 0; i < pageContainers.length; i++) {
       if (i > 0) {
         pdf.addPage();
       }
 
-      const canvas = await html2canvas(pageContainers[i] as HTMLElement, {
+      const pageContainer = pageContainers[i] as HTMLElement;
+      console.log(`PDFExporter.export - página ${i + 1}:`, {
+        className: pageContainer.className,
+        width: pageContainer.offsetWidth,
+        height: pageContainer.offsetHeight,
+      });
+
+      const canvas = await html2canvas(pageContainer, {
         useCORS: true,
         logging: false,
-        width: (pageContainers[i] as HTMLElement).offsetWidth,
-        height: (pageContainers[i] as HTMLElement).offsetHeight,
+        width: pageContainer.offsetWidth,
+        height: pageContainer.offsetHeight,
       });
 
       const imgData = canvas.toDataURL("image/png", 1.0);
