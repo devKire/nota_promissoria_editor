@@ -573,17 +573,15 @@ export default function NoteEditor() {
 
               {/* Descrição */}
               <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-                Permite imprimir{" "}
-                <span className="font-medium text-gray-800">
-                  até 5 notas por página
-                </span>
-                .
-                <br />
-                <span className="text-gray-500">
-                  Normalmente são impressas 1–3 notas (9 cm x 15 cm). Com este
-                  modo ativado, o layout pode ser reduzido até 9 cm x 12 cm,
-                  otimizando o uso do papel.
-                </span>
+                O layout de impressão determina quantas notas serão impressas
+                por página. Escolha o layout que melhor se adequa às suas
+                necessidades. O layout recomendado é o de 4 notas por página,
+                que otimiza o uso do papel A4 e é compatível com a maioria das
+                impressoras. Se você tiver um número pequeno de notas, pode
+                optar pelo layout padrão de 3 notas por página para um visual
+                mais espaçado. Para um grande número de notas, o layout de 5
+                notas por página pode ser mais econômico, embora as notas fiquem
+                menores.
               </p>
 
               {/* Opções de layout (só mostra quando savePaper está ativo) */}
