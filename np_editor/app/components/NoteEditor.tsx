@@ -185,6 +185,7 @@ export default function NoteEditor() {
     setGeneratedNotes([]);
     setInstallments(1);
     setSavePaper(false);
+    setActiveTab("edit");
 
     // Gerar um novo número para a nota
     const newNumber = generateNoteNumber();
